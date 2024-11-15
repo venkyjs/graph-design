@@ -1,60 +1,94 @@
+import React from 'react';
 import { Connection as ConnectionType, Box } from '../types/graph';
 
 interface ConnectionProps extends ConnectionType {
     boxes: { [key: string]: Box };
 }
 
-const getConnectionPoints = (
-    fromBox: Box,
-    toBox: Box,
-    fromSide: 'top' | 'right' | 'bottom' | 'left' = 'right',
-    toSide: 'top' | 'right' | 'bottom' | 'left' = 'left'
-) => {
-    const getPoint = (box: Box, side: string) => {
-        switch (side) {
-            case 'top':
-                return { x: box.x, y: box.y - box.height / 2 };
-            case 'right':
-                return { x: box.x + box.width / 2, y: box.y };
-            case 'bottom':
-                return { x: box.x, y: box.y + box.height / 2 };
-            case 'left':
-                return { x: box.x - box.width / 2, y: box.y };
-            default:
-                return { x: box.x, y: box.y };
-        }
-    };
+type Side = 'top' | 'right' | 'bottom' | 'left';
+type Point = { x: number; y: number };
 
-    const start = getPoint(fromBox, fromSide);
-    const end = getPoint(toBox, toSide);
-
-    const dx = Math.abs(end.x - start.x);
-    const dy = Math.abs(end.y - start.y);
-    const controlDistance = Math.min(dx / 2, 100);
-
-    const controlPoint1 = {
-        x: start.x + (fromSide === 'left' ? -controlDistance : fromSide === 'right' ? controlDistance : 0),
-        y: start.y + (fromSide === 'top' ? -controlDistance : fromSide === 'bottom' ? controlDistance : 0)
-    };
-
-    const controlPoint2 = {
-        x: end.x + (toSide === 'left' ? -controlDistance : toSide === 'right' ? controlDistance : 0),
-        y: end.y + (toSide === 'top' ? -controlDistance : toSide === 'bottom' ? controlDistance : 0)
-    };
-
-    return { start, end, controlPoint1, controlPoint2 };
-};
-
-export const Connection = ({ from, to, fromSide = 'right', toSide = 'left', boxes }: ConnectionProps) => {
+const Connection: React.FC<ConnectionProps> = ({ from, to, boxes }) => {
     const fromBox = boxes[from];
     const toBox = boxes[to];
 
     if (!fromBox || !toBox) return null;
 
-    const { start, end, controlPoint1, controlPoint2 } = getConnectionPoints(fromBox, toBox, fromSide, toSide);
-    const path = `M ${start.x} ${start.y} C ${controlPoint1.x} ${controlPoint1.y}, ${controlPoint2.x} ${controlPoint2.y}, ${end.x} ${end.y}`;
+    const determineBestSides = (from: Box, to: Box): [Side, Side] => {
+        const sides: Side[] = ['top', 'right', 'bottom', 'left'];
+        let bestFromSide: Side = 'right';
+        let bestToSide: Side = 'left';
+        let minDistance = Infinity;
 
-    const markerId = `arrow-${from}-${to}`;
+        // Calculate center points of boxes
+        const fromCenter = {
+            x: from.x + from.width / 2,
+            y: from.y + from.height / 2
+        };
+        const toCenter = {
+            x: to.x + to.width / 2,
+            y: to.y + to.height / 2
+        };
+
+        // Try all possible side combinations
+        for (const fromSide of sides) {
+            for (const toSide of sides) {
+                const fromPoint = getConnectionPoint(from, fromSide);
+                const toPoint = getConnectionPoint(to, toSide);
+                const distance = getDistance(fromPoint, toPoint);
+
+                // Update if this is the shortest distance found
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    bestFromSide = fromSide;
+                    bestToSide = toSide;
+                }
+            }
+        }
+
+        return [bestFromSide, bestToSide];
+    };
+
+    const getConnectionPoint = (box: Box, side: Side): Point => {
+        const centerX = box.x + box.width / 2;
+        const centerY = box.y + box.height / 2;
+
+        switch (side) {
+            case 'top':
+                return { x: centerX, y: box.y };
+            case 'right':
+                return { x: box.x + box.width, y: centerY };
+            case 'bottom':
+                return { x: centerX, y: box.y + box.height };
+            case 'left':
+                return { x: box.x, y: centerY };
+        }
+    };
+
+    const getDistance = (p1: Point, p2: Point): number => {
+        return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+    };
+
+    const [fromSide, toSide] = determineBestSides(fromBox, toBox);
+    const startPoint = getConnectionPoint(fromBox, fromSide);
+    const endPoint = getConnectionPoint(toBox, toSide);
+
+    // Calculate control points for the bezier curve
+    const controlPoint1 = {
+        x: startPoint.x + (fromSide === 'right' ? 50 : fromSide === 'left' ? -50 : 0),
+        y: startPoint.y + (fromSide === 'bottom' ? 50 : fromSide === 'top' ? -50 : 0)
+    };
+
+    const controlPoint2 = {
+        x: endPoint.x + (toSide === 'right' ? 50 : toSide === 'left' ? -50 : 0),
+        y: endPoint.y + (toSide === 'bottom' ? 50 : toSide === 'top' ? -50 : 0)
+    };
+
+    // Generate the SVG path
+    const path = `M ${startPoint.x} ${startPoint.y} 
+                  C ${controlPoint1.x} ${controlPoint1.y},
+                    ${controlPoint2.x} ${controlPoint2.y},
+                    ${endPoint.x} ${endPoint.y}`;
 
     return (
         <svg
@@ -68,26 +102,29 @@ export const Connection = ({ from, to, fromSide = 'right', toSide = 'left', boxe
                 zIndex: -1
             }}
         >
-            <defs>
-                <marker
-                    id={markerId}
-                    viewBox="0 0 10 10"
-                    refX="9"
-                    refY="5"
-                    markerWidth="6"
-                    markerHeight="6"
-                    orient="auto-start-reverse"
-                >
-                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#666" />
-                </marker>
-            </defs>
-            <path
-                d={path}
-                stroke="#666"
-                strokeWidth="2"
-                fill="none"
-                markerEnd={`url(#${markerId})`}
-            />
+            <g>
+                <defs>
+                    <marker
+                        id="arrowhead"
+                        markerWidth="10"
+                        markerHeight="7"
+                        refX="9"
+                        refY="3.5"
+                        orient="auto"
+                    >
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#666" />
+                    </marker>
+                </defs>
+                <path
+                    d={path}
+                    stroke="#666"
+                    strokeWidth="2"
+                    fill="none"
+                    markerEnd="url(#arrowhead)"
+                />
+            </g>
         </svg>
     );
 };
+
+export default Connection;

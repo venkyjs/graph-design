@@ -10,8 +10,6 @@ export interface Box {
 export interface Connection {
     from: string;
     to: string;
-    fromSide?: 'top' | 'right' | 'bottom' | 'left';
-    toSide?: 'top' | 'right' | 'bottom' | 'left';
 }
 
 export interface GraphConfig {
