@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Box as BoxType, Connection as ConnectionType, GraphConfig } from '../types/graph';
 import Box from './Box';
 import Connection from './Connection';
+import ColumnConnection from './ColumnConnection';
 
 interface GraphProps {
     config: GraphConfig;
@@ -12,13 +13,19 @@ interface BoxWithPosition extends BoxType {
     y: number;
 }
 
+interface ColumnHighlight {
+    columnName: string;
+    sourceBoxId: string;
+}
+
 const Graph: React.FC<GraphProps> = ({ config }) => {
     const [boxes, setBoxes] = useState<{ [key: string]: BoxWithPosition }>({});
+    const [highlightedColumn, setHighlightedColumn] = useState<ColumnHighlight | null>(null);
 
     // Initialize box positions once when component mounts
     useEffect(() => {
         const SPACING_X = 250;
-        const SPACING_Y = 150;
+        const SPACING_Y = 200;
         const START_X = 100;
         const START_Y = 100;
 
@@ -63,6 +70,43 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
         }));
     };
 
+    const handleColumnClick = (boxId: string, columnName: string) => {
+        if (highlightedColumn?.columnName === columnName && highlightedColumn?.sourceBoxId === boxId) {
+            setHighlightedColumn(null);
+        } else {
+            setHighlightedColumn({ columnName, sourceBoxId: boxId });
+        }
+    };
+
+    // Find boxes that have the highlighted column
+    const getColumnConnections = () => {
+        if (!highlightedColumn) return [];
+        
+        const sourceBox = boxes[highlightedColumn.sourceBoxId];
+        if (!sourceBox) return [];
+
+        const connections: Array<{ from: BoxWithPosition, to: BoxWithPosition, columnName: string }> = [];
+        
+        Object.values(boxes).forEach(targetBox => {
+            if (targetBox.id === sourceBox.id) return;
+            
+            const hasColumn = targetBox.columns.some(col => 
+                col.name === highlightedColumn.columnName ||
+                col.name === `${highlightedColumn.columnName}Id`
+            );
+            
+            if (hasColumn) {
+                connections.push({
+                    from: sourceBox,
+                    to: targetBox,
+                    columnName: highlightedColumn.columnName
+                });
+            }
+        });
+
+        return connections;
+    };
+
     return (
         <div 
             style={{ 
@@ -75,6 +119,7 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
         >
             {Object.values(boxes).length > 0 && (
                 <>
+                    {/* Regular connections */}
                     {config.connections.map((conn, index) => {
                         const fromBox = boxes[conn.from];
                         const toBox = boxes[conn.to];
@@ -89,12 +134,26 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
                             />
                         );
                     })}
+
+                    {/* Column connections */}
+                    {getColumnConnections().map((conn, index) => (
+                        <ColumnConnection
+                            key={`column-${conn.from.id}-${conn.to.id}-${index}`}
+                            fromBox={conn.from}
+                            toBox={conn.to}
+                            columnName={conn.columnName}
+                        />
+                    ))}
+
+                    {/* Boxes */}
                     {Object.values(boxes).map(box => (
                         <Box
                             key={box.id}
                             {...box}
                             onDragStart={handleDragStart}
                             onDrag={handleDrag}
+                            onColumnClick={handleColumnClick}
+                            highlightedColumn={highlightedColumn?.columnName}
                         />
                     ))}
                 </>
