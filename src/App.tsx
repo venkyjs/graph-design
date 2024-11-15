@@ -1,7 +1,7 @@
-import { Graph } from './components/Graph'
-import { GraphConfig } from './types/graph'
+import { GraphConfig } from './types/graph';
+import Graph from './components/Graph';
 
-const sampleConfig: GraphConfig = {
+const config: GraphConfig = {
   boxes: [
     {
       id: 'box1',
@@ -42,14 +42,14 @@ const sampleConfig: GraphConfig = {
       to: 'box1'
     }
   ]
-}
+};
 
 function App() {
   return (
-    <div className="w-full h-screen bg-white">
-      <Graph config={sampleConfig} />
+    <div className="flex flex-col w-full h-full">
+      <Graph config={config} />
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

@@ -1,55 +1,16 @@
 import React from 'react';
-import { Connection as ConnectionType, Box } from '../types/graph';
+import { Box } from '../types/graph';
 
-interface ConnectionProps extends ConnectionType {
-    boxes: { [key: string]: Box };
+interface ConnectionProps {
+    fromBox: Box;
+    toBox: Box;
 }
 
 type Side = 'top' | 'right' | 'bottom' | 'left';
 type Point = { x: number; y: number };
 
-const Connection: React.FC<ConnectionProps> = ({ from, to, boxes }) => {
-    const fromBox = boxes[from];
-    const toBox = boxes[to];
-
-    if (!fromBox || !toBox) return null;
-
-    const determineBestSides = (from: Box, to: Box): [Side, Side] => {
-        const sides: Side[] = ['top', 'right', 'bottom', 'left'];
-        let bestFromSide: Side = 'right';
-        let bestToSide: Side = 'left';
-        let minDistance = Infinity;
-
-        // Calculate center points of boxes
-        const fromCenter = {
-            x: from.x + from.width / 2,
-            y: from.y + from.height / 2
-        };
-        const toCenter = {
-            x: to.x + to.width / 2,
-            y: to.y + to.height / 2
-        };
-
-        // Try all possible side combinations
-        for (const fromSide of sides) {
-            for (const toSide of sides) {
-                const fromPoint = getConnectionPoint(from, fromSide);
-                const toPoint = getConnectionPoint(to, toSide);
-                const distance = getDistance(fromPoint, toPoint);
-
-                // Update if this is the shortest distance found
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    bestFromSide = fromSide;
-                    bestToSide = toSide;
-                }
-            }
-        }
-
-        return [bestFromSide, bestToSide];
-    };
-
-    const getConnectionPoint = (box: Box, side: Side): Point => {
+const Connection: React.FC<ConnectionProps> = ({ fromBox, toBox }) => {
+    const getPointForSide = (box: Box, side: Side): Point => {
         const centerX = box.x + box.width / 2;
         const centerY = box.y + box.height / 2;
 
@@ -69,26 +30,88 @@ const Connection: React.FC<ConnectionProps> = ({ from, to, boxes }) => {
         return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
     };
 
-    const [fromSide, toSide] = determineBestSides(fromBox, toBox);
-    const startPoint = getConnectionPoint(fromBox, fromSide);
-    const endPoint = getConnectionPoint(toBox, toSide);
+    const findNearestSides = (box1: Box, box2: Box): [Side, Side] => {
+        const sides: Side[] = ['top', 'right', 'bottom', 'left'];
+        let minDistance = Infinity;
+        let bestFromSide: Side = 'right';
+        let bestToSide: Side = 'left';
 
-    // Calculate control points for the bezier curve
-    const controlPoint1 = {
-        x: startPoint.x + (fromSide === 'right' ? 50 : fromSide === 'left' ? -50 : 0),
-        y: startPoint.y + (fromSide === 'bottom' ? 50 : fromSide === 'top' ? -50 : 0)
+        // Get center points of boxes
+        const box1Center = {
+            x: box1.x + box1.width / 2,
+            y: box1.y + box1.height / 2
+        };
+        const box2Center = {
+            x: box2.x + box2.width / 2,
+            y: box2.y + box2.height / 2
+        };
+
+        // Calculate angle between centers to prioritize sides
+        const angle = Math.atan2(box2Center.y - box1Center.y, box2Center.x - box1Center.x);
+        const angleDeg = (angle * 180) / Math.PI;
+
+        // Get candidate sides based on angle
+        const getCandidateSides = (angle: number): Side[] => {
+            if (angle > -45 && angle <= 45) return ['right', 'left'];
+            if (angle > 45 && angle <= 135) return ['bottom', 'top'];
+            if (angle > 135 || angle <= -135) return ['left', 'right'];
+            return ['top', 'bottom'];
+        };
+
+        const primarySides = getCandidateSides(angleDeg);
+        const secondarySides = sides.filter(side => !primarySides.includes(side));
+        const fromSides = [...primarySides, ...secondarySides];
+        const toSides = [...primarySides.slice().reverse(), ...secondarySides];
+
+        // Find the nearest points between candidate sides
+        for (const fromSide of fromSides) {
+            for (const toSide of toSides) {
+                const fromPoint = getPointForSide(box1, fromSide);
+                const toPoint = getPointForSide(box2, toSide);
+                const distance = getDistance(fromPoint, toPoint);
+
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    bestFromSide = fromSide;
+                    bestToSide = toSide;
+                }
+            }
+        }
+
+        return [bestFromSide, bestToSide];
     };
 
-    const controlPoint2 = {
-        x: endPoint.x + (toSide === 'right' ? 50 : toSide === 'left' ? -50 : 0),
-        y: endPoint.y + (toSide === 'bottom' ? 50 : toSide === 'top' ? -50 : 0)
+    const [fromSide, toSide] = findNearestSides(fromBox, toBox);
+    const startPoint = getPointForSide(fromBox, fromSide);
+    const endPoint = getPointForSide(toBox, toSide);
+
+    // Calculate control points based on the sides and distance
+    const distance = getDistance(startPoint, endPoint);
+    const controlDistance = Math.min(distance / 2, 100);
+
+    const getControlPoint = (point: Point, side: Side): Point => {
+        switch (side) {
+            case 'top':
+                return { x: point.x, y: point.y - controlDistance };
+            case 'right':
+                return { x: point.x + controlDistance, y: point.y };
+            case 'bottom':
+                return { x: point.x, y: point.y + controlDistance };
+            case 'left':
+                return { x: point.x - controlDistance, y: point.y };
+        }
     };
+
+    const controlPoint1 = getControlPoint(startPoint, fromSide);
+    const controlPoint2 = getControlPoint(endPoint, toSide);
 
     // Generate the SVG path
     const path = `M ${startPoint.x} ${startPoint.y} 
                   C ${controlPoint1.x} ${controlPoint1.y},
                     ${controlPoint2.x} ${controlPoint2.y},
                     ${endPoint.x} ${endPoint.y}`;
+
+    const markerId = `arrow-${fromBox.id}-${toBox.id}`;
 
     return (
         <svg
@@ -99,30 +122,28 @@ const Connection: React.FC<ConnectionProps> = ({ from, to, boxes }) => {
                 width: '100%',
                 height: '100%',
                 pointerEvents: 'none',
-                zIndex: -1
+                zIndex: 0
             }}
         >
-            <g>
-                <defs>
-                    <marker
-                        id="arrowhead"
-                        markerWidth="10"
-                        markerHeight="7"
-                        refX="9"
-                        refY="3.5"
-                        orient="auto"
-                    >
-                        <polygon points="0 0, 10 3.5, 0 7" fill="#666" />
-                    </marker>
-                </defs>
-                <path
-                    d={path}
-                    stroke="#666"
-                    strokeWidth="2"
-                    fill="none"
-                    markerEnd="url(#arrowhead)"
-                />
-            </g>
+            <defs>
+                <marker
+                    id={markerId}
+                    markerWidth="10"
+                    markerHeight="7"
+                    refX="9"
+                    refY="3.5"
+                    orient="auto"
+                >
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#666" />
+                </marker>
+            </defs>
+            <path
+                d={path}
+                stroke="#666"
+                strokeWidth="2"
+                fill="none"
+                markerEnd={`url(#${markerId})`}
+            />
         </svg>
     );
 };
