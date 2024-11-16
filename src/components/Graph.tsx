@@ -78,46 +78,79 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
 
         const connections: Array<{ from: BoxWithPosition, to: BoxWithPosition, columnName: string }> = [];
         
-        // Find direct connections from the config
-        const directConnections = config.connections.filter(conn => 
-            conn.from === sourceBox.id || conn.to === sourceBox.id
-        );
-
-        // Get the IDs of boxes directly connected to the source box
-        const connectedBoxIds = new Set(directConnections.map(conn => 
-            conn.from === sourceBox.id ? conn.to : conn.from
-        ));
+        // Build a directed graph of connected boxes
+        const connectedBoxes = new Map<string, Set<string>>();
+        const directedConnections = new Set<string>(); // Store directed edges as "from-to" strings
         
-        Object.values(boxes).forEach(targetBox => {
-            if (targetBox.id === sourceBox.id) return;
-            
-            // Only check for column matches if boxes are directly connected
-            if (connectedBoxIds.has(targetBox.id)) {
-                const hasColumn = targetBox.columns.some(col => 
-                    col.name === highlightedColumn.columnName ||
-                    col.name === `${highlightedColumn.columnName}Id`
-                );
-                
-                if (hasColumn) {
-                    // Find the corresponding connection in config to determine direction
-                    const configConnection = config.connections.find(conn => 
-                        (conn.from === sourceBox.id && conn.to === targetBox.id) ||
-                        (conn.from === targetBox.id && conn.to === sourceBox.id)
-                    );
+        config.connections.forEach(conn => {
+            if (!connectedBoxes.has(conn.from)) {
+                connectedBoxes.set(conn.from, new Set());
+            }
+            if (!connectedBoxes.has(conn.to)) {
+                connectedBoxes.set(conn.to, new Set());
+            }
+            // Store both directions for traversal
+            connectedBoxes.get(conn.from)?.add(conn.to);
+            connectedBoxes.get(conn.to)?.add(conn.from);
+            // Store original direction
+            directedConnections.add(`${conn.from}-${conn.to}`);
+        });
 
-                    if (configConnection) {
-                        // If the connection in config is from source to target, maintain that direction
-                        // Otherwise, reverse it
-                        const isForward = configConnection.from === sourceBox.id;
+        // Function to find valid paths where all boxes in the path have the column
+        const findValidPaths = (
+            startId: string,
+            visited: Set<string> = new Set(),
+            currentPath: string[] = []
+        ) => {
+            visited.add(startId);
+            currentPath.push(startId);
+
+            const currentBox = boxes[startId];
+            const hasColumn = currentBox.columns.some(col => 
+                col.name === highlightedColumn.columnName ||
+                col.name === `${highlightedColumn.columnName}Id`
+            );
+
+            if (!hasColumn) {
+                visited.delete(startId);
+                currentPath.pop();
+                return;
+            }
+
+            // For each valid path found, create connections
+            if (currentPath.length > 1) {
+                for (let i = 0; i < currentPath.length - 1; i++) {
+                    const fromBoxId = currentPath[i];
+                    const toBoxId = currentPath[i + 1];
+                    
+                    // Check the original direction in the config
+                    const isForward = directedConnections.has(`${fromBoxId}-${toBoxId}`);
+                    const isReverse = directedConnections.has(`${toBoxId}-${fromBoxId}`);
+                    
+                    if (isForward || isReverse) {
                         connections.push({
-                            from: isForward ? sourceBox : targetBox,
-                            to: isForward ? targetBox : sourceBox,
+                            from: boxes[isForward ? fromBoxId : toBoxId],
+                            to: boxes[isForward ? toBoxId : fromBoxId],
                             columnName: highlightedColumn.columnName
                         });
                     }
                 }
             }
-        });
+
+            // Continue exploring neighbors
+            const neighbors = connectedBoxes.get(startId) || new Set();
+            neighbors.forEach(neighborId => {
+                if (!visited.has(neighborId)) {
+                    findValidPaths(neighborId, visited, currentPath);
+                }
+            });
+
+            visited.delete(startId);
+            currentPath.pop();
+        };
+
+        // Start the path finding from the source box
+        findValidPaths(sourceBox.id);
 
         return connections;
     };
