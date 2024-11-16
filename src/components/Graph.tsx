@@ -24,8 +24,7 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
 
     // Initialize box positions once when component mounts
     useEffect(() => {
-        const SPACING_X = 250;
-        const SPACING_Y = 200;
+        const SPACING_X = 350; // Horizontal spacing between boxes
         const START_X = 100;
         const START_Y = 100;
 
@@ -79,20 +78,44 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
 
         const connections: Array<{ from: BoxWithPosition, to: BoxWithPosition, columnName: string }> = [];
         
+        // Find direct connections from the config
+        const directConnections = config.connections.filter(conn => 
+            conn.from === sourceBox.id || conn.to === sourceBox.id
+        );
+
+        // Get the IDs of boxes directly connected to the source box
+        const connectedBoxIds = new Set(directConnections.map(conn => 
+            conn.from === sourceBox.id ? conn.to : conn.from
+        ));
+        
         Object.values(boxes).forEach(targetBox => {
             if (targetBox.id === sourceBox.id) return;
             
-            const hasColumn = targetBox.columns.some(col => 
-                col.name === highlightedColumn.columnName ||
-                col.name === `${highlightedColumn.columnName}Id`
-            );
-            
-            if (hasColumn) {
-                connections.push({
-                    from: sourceBox,
-                    to: targetBox,
-                    columnName: highlightedColumn.columnName
-                });
+            // Only check for column matches if boxes are directly connected
+            if (connectedBoxIds.has(targetBox.id)) {
+                const hasColumn = targetBox.columns.some(col => 
+                    col.name === highlightedColumn.columnName ||
+                    col.name === `${highlightedColumn.columnName}Id`
+                );
+                
+                if (hasColumn) {
+                    // Find the corresponding connection in config to determine direction
+                    const configConnection = config.connections.find(conn => 
+                        (conn.from === sourceBox.id && conn.to === targetBox.id) ||
+                        (conn.from === targetBox.id && conn.to === sourceBox.id)
+                    );
+
+                    if (configConnection) {
+                        // If the connection in config is from source to target, maintain that direction
+                        // Otherwise, reverse it
+                        const isForward = configConnection.from === sourceBox.id;
+                        connections.push({
+                            from: isForward ? sourceBox : targetBox,
+                            to: isForward ? targetBox : sourceBox,
+                            columnName: highlightedColumn.columnName
+                        });
+                    }
+                }
             }
         });
 

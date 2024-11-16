@@ -69,7 +69,7 @@ const Connection: React.FC<ConnectionProps> = ({ fromBox, toBox }) => {
                 <marker
                     id={`arrow-${fromBox.id}-${toBox.id}`}
                     viewBox="0 0 10 10"
-                    refX="5"
+                    refX="9"
                     refY="5"
                     markerWidth="6"
                     markerHeight="6"
@@ -84,6 +84,7 @@ const Connection: React.FC<ConnectionProps> = ({ fromBox, toBox }) => {
                 strokeWidth="2"
                 fill="none"
                 markerEnd={`url(#arrow-${fromBox.id}-${toBox.id})`}
+                style={{ markerEnd: `url(#arrow-${fromBox.id}-${toBox.id})` }}
             />
         </svg>
     );

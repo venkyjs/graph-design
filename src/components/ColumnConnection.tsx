@@ -18,7 +18,14 @@ const ColumnConnection: React.FC<ColumnConnectionProps> = ({ fromBox, toBox, col
             );
             if (columnIndex === -1) return box.y + headerHeight / 2;
             
-            return box.y + headerHeight + (columnIndex * 30) + 15; // 30px per column, centered
+            // Constants for spacing
+            const columnHeight = 25; // Total height including padding and border
+            const firstColumnOffset = 15; // Initial offset from header
+            
+            // Calculate position:
+            // Start from box top + header + first column offset
+            // Then add the height for each subsequent column
+            return box.y + headerHeight + firstColumnOffset + (columnIndex * columnHeight);
         };
 
         const fromY = getColumnY(fromBox, columnName);
@@ -77,7 +84,7 @@ const ColumnConnection: React.FC<ColumnConnectionProps> = ({ fromBox, toBox, col
                 <marker
                     id={`column-arrow-${fromBox.id}-${toBox.id}`}
                     viewBox="0 0 10 10"
-                    refX="5"
+                    refX="9"
                     refY="5"
                     markerWidth="6"
                     markerHeight="6"
@@ -93,6 +100,7 @@ const ColumnConnection: React.FC<ColumnConnectionProps> = ({ fromBox, toBox, col
                 strokeDasharray="4 2"
                 fill="none"
                 markerEnd={`url(#column-arrow-${fromBox.id}-${toBox.id})`}
+                style={{ markerEnd: `url(#column-arrow-${fromBox.id}-${toBox.id})` }}
             />
         </svg>
     );
