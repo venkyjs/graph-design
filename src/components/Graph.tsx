@@ -51,19 +51,11 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
         document.body.removeChild(dragImage);
     };
 
-    const handleDrag = (e: React.DragEvent, id: string) => {
-        if (e.clientX === 0 && e.clientY === 0) return;
-
-        const box = boxes[id];
-        if (!box) return;
-
-        const newX = e.clientX - box.width / 2;
-        const newY = e.clientY - box.height / 2;
-
-        setBoxes(prev => ({
-            ...prev,
+    const handleDrag = (newX: number, newY: number, id: string) => {
+        setBoxes(prevBoxes => ({
+            ...prevBoxes,
             [id]: {
-                ...prev[id],
+                ...prevBoxes[id],
                 x: newX,
                 y: newY
             }

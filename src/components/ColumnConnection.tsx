@@ -8,31 +8,17 @@ interface ColumnConnectionProps {
 }
 
 const ColumnConnection: React.FC<ColumnConnectionProps> = ({ fromBox, toBox, columnName }) => {
-    const calculateControlPoints = () => {
-        const fromCenterX = fromBox.x + fromBox.width / 2;
-        const fromCenterY = fromBox.y + fromBox.height / 2;
-        const toCenterX = toBox.x + toBox.width / 2;
-        const toCenterY = toBox.y + toBox.height / 2;
+    const headerHeight = 40; // Height of the header area
 
-        // Calculate the direct distance between centers
-        const dx = toCenterX - fromCenterX;
-        const dy = toCenterY - fromCenterY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-
-        // Determine connection points
-        let fromPoint = { x: 0, y: 0 };
-        let toPoint = { x: 0, y: 0 };
-
+    const calculatePoints = () => {
         // Find the column positions in both boxes
         const getColumnY = (box: Box & { x: number; y: number }, colName: string): number => {
             const columnIndex = box.columns.findIndex(col => 
                 col.name === colName || col.name === `${colName}Id`
             );
-            if (columnIndex === -1) return box.y + box.height / 2;
+            if (columnIndex === -1) return box.y + headerHeight / 2;
             
-            const headerHeight = 40; // Approximate header height
-            const columnHeight = 30; // Approximate height per column
-            return box.y + headerHeight + (columnIndex * columnHeight) + (columnHeight / 2);
+            return box.y + headerHeight + (columnIndex * 30) + 15; // 30px per column, centered
         };
 
         const fromY = getColumnY(fromBox, columnName);
@@ -41,50 +27,29 @@ const ColumnConnection: React.FC<ColumnConnectionProps> = ({ fromBox, toBox, col
         // Determine if going right to left
         const isRightToLeft = fromBox.x > toBox.x;
 
-        if (isRightToLeft) {
-            fromPoint = {
-                x: fromBox.x,
-                y: fromY
-            };
-            toPoint = {
-                x: toBox.x + toBox.width,
-                y: toY
-            };
-        } else {
-            fromPoint = {
-                x: fromBox.x + fromBox.width,
-                y: fromY
-            };
-            toPoint = {
-                x: toBox.x,
-                y: toY
-            };
-        }
+        let fromPoint = {
+            x: isRightToLeft ? fromBox.x : fromBox.x + fromBox.width,
+            y: fromY
+        };
 
-        // Calculate control points
-        let control1, control2;
-        const curveDistance = Math.abs(fromPoint.x - toPoint.x) * 0.4;
+        let toPoint = {
+            x: isRightToLeft ? toBox.x + toBox.width : toBox.x,
+            y: toY
+        };
 
-        if (isRightToLeft) {
-            // Create a smoother curve for right-to-left connections
-            control1 = {
-                x: fromPoint.x - curveDistance,
-                y: fromPoint.y
-            };
-            control2 = {
-                x: toPoint.x + curveDistance,
-                y: toPoint.y
-            };
-        } else {
-            control1 = {
-                x: fromPoint.x + curveDistance,
-                y: fromPoint.y
-            };
-            control2 = {
-                x: toPoint.x - curveDistance,
-                y: toPoint.y
-            };
-        }
+        // Calculate control points for smooth curve
+        const dx = Math.abs(fromPoint.x - toPoint.x);
+        const curveDistance = Math.min(dx * 0.4, 80); // Slightly tighter curves for columns
+
+        let control1 = {
+            x: isRightToLeft ? fromPoint.x - curveDistance : fromPoint.x + curveDistance,
+            y: fromPoint.y
+        };
+
+        let control2 = {
+            x: isRightToLeft ? toPoint.x + curveDistance : toPoint.x - curveDistance,
+            y: toPoint.y
+        };
 
         return {
             fromPoint,
@@ -94,7 +59,7 @@ const ColumnConnection: React.FC<ColumnConnectionProps> = ({ fromBox, toBox, col
         };
     };
 
-    const { fromPoint, toPoint, control1, control2 } = calculateControlPoints();
+    const { fromPoint, toPoint, control1, control2 } = calculatePoints();
 
     return (
         <svg 
