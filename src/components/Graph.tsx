@@ -38,7 +38,7 @@ const calculateDatasetPositions = (config: GraphConfig) => {
         levels[level].push(datasetId);
         
         // Get all outgoing connections from this dataset
-        const outgoingConnections = config.connections.filter(conn => conn.from === datasetId);
+        const outgoingConnections = (config.connections || []).filter(conn => conn.from === datasetId);
         
         // Process all target datasets
         outgoingConnections.forEach(conn => {
@@ -48,10 +48,16 @@ const calculateDatasetPositions = (config: GraphConfig) => {
     
     // Start with root datasets (those with no incoming connections)
     const rootDatasets = config.datasets.filter(dataset => 
-        !config.connections.some(conn => conn.to === dataset.id)
+        !(config.connections || []).some(conn => conn.to === dataset.id)
     );
     
-    rootDatasets.forEach(d => getLevel(d.id));
+    // If no root datasets found (e.g., all datasets are connected in a cycle),
+    // use all datasets as roots
+    if (rootDatasets.length === 0) {
+        config.datasets.forEach(d => getLevel(d.id));
+    } else {
+        rootDatasets.forEach(d => getLevel(d.id));
+    }
     
     // Calculate positions for each level
     Object.entries(levels).forEach(([levelStr, datasetIds]) => {
@@ -87,6 +93,9 @@ const calculateDatasetPositions = (config: GraphConfig) => {
 
 const Graph: React.FC<GraphProps> = ({ config }) => {
     const [datasets, setDatasets] = useState<{ [key: string]: DatasetWithPosition }>(() => {
+        if (!config.datasets || config.datasets.length === 0) {
+            return {};
+        }
         console.log('Initializing datasets with config:', config);
         return calculateDatasetPositions(config);
     });
@@ -299,7 +308,7 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
             if (visited.has(datasetId)) return [];
             visited.add(datasetId);
 
-            const directConnections = config.connections
+            const directConnections = (config.connections || [])
                 .filter(conn => conn.from === datasetId || conn.to === datasetId)
                 .map(conn => conn.from === datasetId ? conn.to : conn.from);
 
@@ -330,7 +339,7 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
             const next = connectedDatasets[i + 1];
 
             // Check if these datasets are connected in the config
-            const isDirectlyConnected = config.connections.some(conn => 
+            const isDirectlyConnected = (config.connections || []).some(conn => 
                 (conn.from === current.id && conn.to === next.id) ||
                 (conn.from === next.id && conn.to === current.id)
             );
@@ -378,6 +387,8 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
     return (
         <div 
             ref={containerRef}
+            role="presentation"
+            aria-label="Graph visualization"
             className="relative w-full h-full bg-gray-50 overflow-hidden"
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
@@ -389,7 +400,11 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
                 cursor: isPanning ? 'grabbing' : 'grab'
             }}
         >
-            <svg className="absolute top-0 left-0 w-full h-full" style={{ pointerEvents: 'none' }}>
+            <svg 
+                className="absolute top-0 left-0 w-full h-full" 
+                style={{ pointerEvents: 'none' }}
+                aria-hidden="true"
+            >
                 <defs>
                     <marker
                         id="arrowhead"
@@ -403,7 +418,7 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
                     </marker>
                 </defs>
                 <g transform={`translate(${viewport.translateX},${viewport.translateY}) scale(${viewport.scale})`}>
-                    {config.connections.map((connection, index) => {
+                    {(config.connections || []).map((connection, index) => {
                         const fromDataset = datasets[connection.from];
                         const toDataset = datasets[connection.to];
 

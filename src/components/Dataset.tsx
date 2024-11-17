@@ -9,7 +9,7 @@ const MIN_WIDTH = 200;
 
 interface DatasetProps {
     dataset: DatasetType;
-    onColumnClick: (datasetId: string, columnName: string) => void;
+    onColumnClick: (columnName: string, e: MouseEvent) => void;
     highlightedColumn?: { sourceDatasetId: string; columnName: string };
     onDragStart: (e: MouseEvent, dataset: DatasetType) => void;
     onDrag: (e: MouseEvent, dataset: DatasetType) => void;
@@ -129,7 +129,7 @@ const Dataset: React.FC<DatasetProps> = ({
                 ref={headerRef}
                 className="flex justify-between items-center px-3 py-2 flex-wrap gap-2"
             >
-                <div className="font-medium text-gray-700">{dataset.display_name}</div>
+                <div className="font-medium text-gray-700">{dataset.display_name || dataset.name}</div>
             </div>
 
             {/* Content */}
@@ -141,7 +141,7 @@ const Dataset: React.FC<DatasetProps> = ({
                     <div
                         key={column.name}
                         className="flex items-center gap-2 py-1 cursor-pointer hover:bg-gray-50 rounded px-1"
-                        onClick={() => onColumnClick(dataset.id, column.name)}
+                        onClick={(e) => onColumnClick(column.name, e)}
                     >
                         <div className="text-gray-600">{column.name}</div>
                         <div className="text-gray-400 text-xs">{column.type}</div>
