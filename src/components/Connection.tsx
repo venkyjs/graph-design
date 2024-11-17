@@ -1,90 +1,83 @@
 import React from 'react';
-import { Box } from '../types/graph';
+import { DatasetWithPosition } from '../types/graph';
 
 interface ConnectionProps {
-    fromBox: Box & { x: number; y: number };
-    toBox: Box & { x: number; y: number };
+    from: DatasetWithPosition;
+    to: DatasetWithPosition;
 }
 
-const Connection: React.FC<ConnectionProps> = ({ fromBox, toBox }) => {
-    const headerHeight = 40; // Height of the header area
+const Connection: React.FC<ConnectionProps> = ({ from, to }) => {
+    if (!from || !to) {
+        console.warn('Missing dataset in connection');
+        return null;
+    }
 
-    const calculatePoints = () => {
-        const fromCenterX = fromBox.x + fromBox.width / 2;
-        const fromHeaderY = fromBox.y + headerHeight / 2;
-        const toCenterX = toBox.x + toBox.width / 2;
-        const toHeaderY = toBox.y + headerHeight / 2;
+    const HEADER_HEIGHT = 24; // Height of the dataset header
+    const HEADER_PADDING = 12; // Padding around header
 
-        // Determine if going right to left
-        const isRightToLeft = fromBox.x > toBox.x;
-
-        // Calculate connection points from headers
-        let fromPoint = {
-            x: isRightToLeft ? fromBox.x : fromBox.x + fromBox.width,
-            y: fromHeaderY
-        };
-
-        let toPoint = {
-            x: isRightToLeft ? toBox.x + toBox.width : toBox.x,
-            y: toHeaderY
-        };
-
-        // Calculate control points for smooth curve
-        const dx = Math.abs(fromPoint.x - toPoint.x);
-        const curveDistance = Math.min(dx * 0.5, 100); // Cap the curve distance
-
-        let control1 = {
-            x: isRightToLeft ? fromPoint.x - curveDistance : fromPoint.x + curveDistance,
-            y: fromPoint.y
-        };
-
-        let control2 = {
-            x: isRightToLeft ? toPoint.x + curveDistance : toPoint.x - curveDistance,
-            y: toPoint.y
-        };
-
-        return {
-            fromPoint,
-            toPoint,
-            control1,
-            control2
-        };
+    const getHeaderMiddleY = (dataset: DatasetWithPosition): number => {
+        return dataset.y + (HEADER_HEIGHT / 2) + HEADER_PADDING;
     };
 
-    const { fromPoint, toPoint, control1, control2 } = calculatePoints();
+    // Determine if the connection should be reversed based on position
+    const shouldReverse = from.x > to.x;
+    const [startDataset, endDataset] = shouldReverse ? [to, from] : [from, to];
+
+    // Calculate connection points
+    const startX = shouldReverse 
+        ? startDataset.x // Left edge
+        : startDataset.x + startDataset.width; // Right edge
+    const startY = getHeaderMiddleY(startDataset);
+    
+    const endX = shouldReverse 
+        ? endDataset.x + endDataset.width // Right edge
+        : endDataset.x; // Left edge
+    const endY = getHeaderMiddleY(endDataset);
+
+    // Create curved path with adjusted control points
+    const distance = Math.abs(endX - startX);
+    const controlPointOffset = Math.min(distance * 0.2, 50); // Limit the curve's bulge
+
+    const path = `
+        M ${startX} ${startY}
+        C ${startX + (shouldReverse ? -controlPointOffset : controlPointOffset)} ${startY},
+          ${endX + (shouldReverse ? controlPointOffset : -controlPointOffset)} ${endY},
+          ${endX} ${endY}
+    `;
 
     return (
-        <svg 
-            style={{ 
-                position: 'absolute', 
-                top: 0, 
-                left: 0, 
-                width: '100%', 
-                height: '100%', 
+        <svg
+            style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
                 pointerEvents: 'none',
                 zIndex: 1
             }}
         >
             <defs>
                 <marker
-                    id={`arrow-${fromBox.id}-${toBox.id}`}
-                    viewBox="0 0 10 10"
+                    id="arrowhead"
+                    markerWidth="10"
+                    markerHeight="7"
                     refX="9"
-                    refY="5"
-                    markerWidth="6"
-                    markerHeight="6"
-                    orient="auto-start-reverse"
+                    refY="3.5"
+                    orient="auto"
                 >
-                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#666" />
+                    <polygon
+                        points="0 0, 10 3.5, 0 7"
+                        fill="#666666"
+                    />
                 </marker>
             </defs>
             <path
-                d={`M ${fromPoint.x},${fromPoint.y} C ${control1.x},${control1.y} ${control2.x},${control2.y} ${toPoint.x},${toPoint.y}`}
-                stroke="#666"
+                d={path}
+                stroke="#666666"
                 strokeWidth="2"
                 fill="none"
-                markerEnd={`url(#arrow-${fromBox.id}-${toBox.id})`}
-                style={{ markerEnd: `url(#arrow-${fromBox.id}-${toBox.id})` }}
+                markerEnd="url(#arrowhead)"
             />
         </svg>
     );

@@ -1,10 +1,11 @@
 {
-  "boxes": [
+  "datasets": [
     {
-      "id": "box1",
+      "id": "dataset1",
+      "display_name": "BCBS 625",
       "width": 200,
       "height": 200,
-      "label": "User",
+      "type": "Report",
       "columns": [
         { "name": "id", "type": "UUID" },
         { "name": "username", "type": "string" },
@@ -13,10 +14,11 @@
       ]
     },
     {
-      "id": "box2",
+      "id": "dataset2",
+      "display_name": "DS1",
       "width": 200,
       "height": 200,
-      "label": "Post",
+      "type": "Input Flow",
       "columns": [
         { "name": "id", "type": "UUID" },
         { "name": "title", "type": "string" },
@@ -26,10 +28,11 @@
       ]
     },
     {
-      "id": "box3",
+      "id": "dataset3",
+      "display_name":"DS2",
       "width": 200,
       "height": 200,
-      "label": "Comment",
+      "type": "Output Flow",
       "columns": [
         { "name": "id", "type": "UUID" },
         { "name": "postId", "type": "UUID" },
@@ -41,12 +44,12 @@
   ],
   "connections": [
     {
-      "from": "box1",
-      "to": "box2"
+      "from": "dataset1",
+      "to": "dataset2"
     },
     {
-      "from": "box2",
-      "to": "box3"
+      "from": "dataset2",
+      "to": "dataset3"
     }
   ]
 }

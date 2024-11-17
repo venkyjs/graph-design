@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GraphConfig } from './types/graph';
 import Graph from './components/Graph';
 import { fetchGraphConfig } from './services/graphService';
@@ -11,11 +11,14 @@ function App() {
   useEffect(() => {
     const loadConfig = async () => {
       try {
+        console.log('Fetching configuration...');
         const data = await fetchGraphConfig();
+        console.log('Configuration loaded:', data);
         setConfig(data);
+        setError(null);
       } catch (err) {
+        console.error('Error loading configuration:', err);
         setError('Failed to load graph configuration');
-        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -37,7 +40,7 @@ function App() {
   }
 
   return (
-    <div className="flex flex-col w-full h-full">
+    <div className="w-screen h-screen overflow-hidden bg-gray-100">
       <Graph config={config} />
     </div>
   );

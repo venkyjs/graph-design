@@ -1,10 +1,10 @@
 {
-  "boxes": [
+  "datasets": [
     {
-      "id": "box1",
+      "id": "dataset1",
       "width": 200,
       "height": 200,
-      "label": "User",
+      "type": "User",
       "columns": [
         { "name": "id", "type": "UUID" },
         { "name": "username", "type": "string" },
@@ -13,10 +13,10 @@
       ]
     },
     {
-      "id": "box2",
+      "id": "dataset2",
       "width": 200,
       "height": 200,
-      "label": "Post",
+      "type": "Post",
       "columns": [
         { "name": "id", "type": "UUID" },
         { "name": "title", "type": "string" },
@@ -26,10 +26,10 @@
       ]
     },
     {
-      "id": "box3",
+      "id": "dataset3",
       "width": 200,
       "height": 200,
-      "label": "Comment",
+      "type": "Comment",
       "columns": [
         { "name": "id", "type": "UUID" },
         { "name": "postId", "type": "UUID" },
@@ -41,12 +41,12 @@
   ],
   "connections": [
     {
-      "from": "box1",
-      "to": "box2"
+      "from": "dataset1",
+      "to": "dataset2"
     },
     {
-      "from": "box2",
-      "to": "box3"
+      "from": "dataset2",
+      "to": "dataset3"
     }
   ]
 }

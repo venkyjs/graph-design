@@ -1,8 +1,9 @@
-export interface Box {
+export interface Dataset {
     id: string;
+    display_name: string;
     width: number;
     height: number;
-    label: string;
+    type: string;
     columns: Column[];
 }
 
@@ -17,6 +18,16 @@ export interface Connection {
 }
 
 export interface GraphConfig {
-    boxes: Box[];
+    datasets: Dataset[];
     connections: Connection[];
+}
+
+export interface DatasetWithPosition extends Dataset {
+    x: number;
+    y: number;
+}
+
+export interface HighlightedColumn {
+    sourceDatasetId: string;
+    columnName: string;
 }
