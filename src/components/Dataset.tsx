@@ -11,9 +11,9 @@ interface DatasetProps {
     dataset: DatasetType;
     onColumnClick: (datasetId: string, columnName: string) => void;
     highlightedColumn?: { sourceDatasetId: string; columnName: string };
-    onDragStart: (e: React.DragEvent, dataset: DatasetType) => void;
-    onDrag: (e: React.DragEvent, dataset: DatasetType) => void;
-    onDragEnd: (e: React.DragEvent) => void;
+    onDragStart: (e: MouseEvent, dataset: DatasetType) => void;
+    onDrag: (e: MouseEvent, dataset: DatasetType) => void;
+    onDragEnd: (e: MouseEvent) => void;
     x: number;
     y: number;
 }
@@ -77,12 +77,46 @@ const Dataset: React.FC<DatasetProps> = ({
                 transform: `translate(${x}px, ${y}px)`,
                 width: dataset.width,
                 minWidth: MIN_WIDTH,
-                transition: 'height 0.3s ease, width 0.3s ease'
+                transition: 'height 0.3s ease, width 0.3s ease',
+                userSelect: 'none'
             }}
-            draggable
-            onDragStart={(e) => onDragStart(e, dataset)}
-            onDrag={(e) => onDrag(e, dataset)}
-            onDragEnd={onDragEnd}
+            onMouseDown={(e) => {
+                // Only handle left mouse button
+                if (e.button !== 0) return;
+                
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Start the drag
+                onDragStart(e.nativeEvent, dataset);
+                
+                // Handle mouse move for dragging
+                const handleMouseMove = (moveEvent: MouseEvent) => {
+                    moveEvent.preventDefault();
+                    moveEvent.stopPropagation();
+                    
+                    // Ensure the event target is still valid
+                    if (!moveEvent.target) return;
+                    
+                    onDrag(moveEvent, dataset);
+                };
+                
+                // Handle mouse up for drop
+                const handleMouseUp = (upEvent: MouseEvent) => {
+                    upEvent.preventDefault();
+                    upEvent.stopPropagation();
+                    
+                    // Clean up event listeners first
+                    document.removeEventListener('mousemove', handleMouseMove, true);
+                    document.removeEventListener('mouseup', handleMouseUp, true);
+                    
+                    onDragEnd(upEvent);
+                };
+                
+                // Add event listeners with capture phase to ensure they're handled first
+                document.addEventListener('mousemove', handleMouseMove, true);
+                document.addEventListener('mouseup', handleMouseUp, true);
+            }}
         >
             {/* Header */}
             <div 

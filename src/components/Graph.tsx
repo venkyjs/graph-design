@@ -99,8 +99,9 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
     });
 
     const [highlightedColumn, setHighlightedColumn] = useState<HighlightedColumn | null>(null);
-    const [isDragging, setIsDragging] = useState(false);
-    const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+    const isDraggingRef = useRef(false);
+    const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
+    const [dragStartDatasetPos, setDragStartDatasetPos] = useState({ x: 0, y: 0 });
     const [viewport, setViewport] = useState<ViewportState>({
         scale: 1,
         translateX: 0,
@@ -111,6 +112,56 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const [isBackgroundClicked, setIsBackgroundClicked] = useState(false);
 
+    const calculateInitialViewport = () => {
+        if (!containerRef.current || Object.keys(datasets).length === 0) return null;
+
+        // Get container dimensions
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const containerWidth = containerRect.width;
+        const containerHeight = containerRect.height;
+
+        // Calculate bounding box of all datasets
+        let minX = Infinity;
+        let maxX = -Infinity;
+        let minY = Infinity;
+        let maxY = -Infinity;
+
+        Object.values(datasets).forEach(dataset => {
+            minX = Math.min(minX, dataset.x);
+            maxX = Math.max(maxX, dataset.x + dataset.width);
+            minY = Math.min(minY, dataset.y);
+            maxY = Math.max(maxY, dataset.y + dataset.height);
+        });
+
+        // Add padding
+        const padding = 50;
+        const contentWidth = maxX - minX + (padding * 2);
+        const contentHeight = maxY - minY + (padding * 2);
+
+        // Calculate scale needed to fit content
+        const scaleX = containerWidth / contentWidth;
+        const scaleY = containerHeight / contentHeight;
+        const scale = Math.min(scaleX, scaleY, 1); // Cap at 1 to prevent zooming in
+
+        // Calculate translation to center content
+        const translateX = (containerWidth - (contentWidth * scale)) / 2 - (minX * scale) + padding;
+        const translateY = (containerHeight - (contentHeight * scale)) / 2 - (minY * scale) + padding;
+
+        return {
+            scale,
+            translateX,
+            translateY
+        };
+    };
+
+    // Set initial viewport on mount and when datasets change
+    useEffect(() => {
+        const initialViewport = calculateInitialViewport();
+        if (initialViewport) {
+            setViewport(initialViewport);
+        }
+    }, [datasets]);
+
     // Add wheel event listener with { passive: false }
     useEffect(() => {
         const container = containerRef.current;
@@ -118,7 +169,7 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
 
         const handleWheelEvent = (e: WheelEvent) => {
             e.preventDefault();
-            const zoomSensitivity = 0.001;
+            const zoomSensitivity = 0.002; // Doubled from 0.001 to 0.002
             const delta = -e.deltaY * zoomSensitivity;
             const newScale = Math.min(Math.max(viewport.scale + delta, 0.1), 2);
 
@@ -171,33 +222,60 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
         e.preventDefault();
     };
 
-    const handleDragStart = (e: React.DragEvent, id: string) => {
-        const dataset = datasets[id];
-        if (!dataset) return;
-
-        setIsDragging(true);
-        const rect = (e.target as HTMLElement).getBoundingClientRect();
-        setDragOffset({
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
+    const handleDragStart = (e: MouseEvent, dataset: DatasetType) => {
+        if (!containerRef.current) return;
+        console.log('Drag started');
+        
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const mouseX = (e.clientX - containerRect.left - viewport.translateX) / viewport.scale;
+        const mouseY = (e.clientY - containerRect.top - viewport.translateY) / viewport.scale;
+        
+        isDraggingRef.current = true;
+        setDragStartPos({
+            x: mouseX,
+            y: mouseY
+        });
+        setDragStartDatasetPos({
+            x: dataset.x,
+            y: dataset.y
         });
     };
 
-    const handleDrag = (x: number, y: number, id: string) => {
-        if (!isDragging) return;
+    const handleDrag = (e: MouseEvent, dataset: DatasetType) => {
+        if (!isDraggingRef.current || !containerRef.current) return;
 
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const mouseX = (e.clientX - containerRect.left - viewport.translateX) / viewport.scale;
+        const mouseY = (e.clientY - containerRect.top - viewport.translateY) / viewport.scale;
+
+        const deltaX = mouseX - dragStartPos.x;
+        const deltaY = mouseY - dragStartPos.y;
+
+        const newX = dragStartDatasetPos.x + deltaX;
+        const newY = dragStartDatasetPos.y + deltaY;
+
+        // Ensure the dataset stays within visible bounds
+        const minX = -dataset.width;
+        const maxX = (containerRect.width / viewport.scale) - (dataset.width / 2);
+        const minY = 0;
+        const maxY = (containerRect.height / viewport.scale) - dataset.height;
+
+        const boundedX = Math.max(minX, Math.min(maxX, newX));
+        const boundedY = Math.max(minY, Math.min(maxY, newY));
+        
         setDatasets(prev => ({
             ...prev,
-            [id]: {
-                ...prev[id],
-                x: x,
-                y: y
+            [dataset.id]: {
+                ...prev[dataset.id],
+                x: boundedX,
+                y: boundedY
             }
         }));
     };
 
     const handleDragEnd = () => {
-        setIsDragging(false);
+        console.log('Drag ended');
+        isDraggingRef.current = false;
     };
 
     const handleColumnClick = (datasetId: string, columnName: string) => {
@@ -309,11 +387,8 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
                         dataset={dataset}
                         onColumnClick={handleColumnClick}
                         highlightedColumn={highlightedColumn}
-                        onDragStart={(e, d) => handleDragStart(e, d.id)}
-                        onDrag={(e, d) => {
-                            const rect = (e.target as HTMLElement).getBoundingClientRect();
-                            handleDrag(e.clientX - rect.width / 2, e.clientY - rect.height / 2, d.id);
-                        }}
+                        onDragStart={(e) => handleDragStart(e, dataset)}
+                        onDrag={(e) => handleDrag(e, dataset)}
                         onDragEnd={handleDragEnd}
                         x={dataset.x}
                         y={dataset.y}
