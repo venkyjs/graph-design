@@ -16,6 +16,8 @@ interface DatasetProps {
     onDragEnd: (e: MouseEvent) => void;
     x: number;
     y: number;
+    width: number;
+    height: number;
 }
 
 const Dataset: React.FC<DatasetProps> = ({
@@ -26,7 +28,9 @@ const Dataset: React.FC<DatasetProps> = ({
     onDrag,
     onDragEnd,
     x,
-    y
+    y,
+    width,
+    height
 }) => {
     const headerRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
@@ -73,13 +77,6 @@ const Dataset: React.FC<DatasetProps> = ({
     return (
         <div
             className="absolute bg-white rounded-lg shadow-md border border-gray-200 cursor-move text-sm"
-            style={{
-                transform: `translate(${x}px, ${y}px)`,
-                width: dataset.width,
-                minWidth: MIN_WIDTH,
-                transition: 'height 0.3s ease, width 0.3s ease',
-                userSelect: 'none'
-            }}
             onMouseDown={(e) => {
                 // Only handle left mouse button
                 if (e.button !== 0) return;
@@ -117,32 +114,37 @@ const Dataset: React.FC<DatasetProps> = ({
                 document.addEventListener('mousemove', handleMouseMove, true);
                 document.addEventListener('mouseup', handleMouseUp, true);
             }}
+            style={{
+                transform: `translate(${x}px, ${y}px)`,
+                width: `${width}px`,
+                height: `${height}px`,
+                position: 'absolute',
+                userSelect: 'none',
+                minWidth: MIN_WIDTH,
+                maxWidth: width,
+            }}
         >
             {/* Header */}
             <div 
                 ref={headerRef}
                 className="flex justify-between items-center px-3 py-2 flex-wrap gap-2"
             >
-                <span className="font-semibold text-gray-700 break-words text-[0.8em]">{dataset.display_name}</span>
-                <span className="text-[0.7em] italic text-gray-500 break-all">{dataset.id}</span>
+                <div className="font-medium text-gray-700">{dataset.display_name}</div>
             </div>
 
-            {/* Divider */}
-            <div className="border-t border-gray-200"></div>
-
-            {/* Columns */}
-            <div ref={contentRef} className="p-3 space-y-1">
+            {/* Content */}
+            <div 
+                ref={contentRef}
+                className="px-3 py-2 border-t border-gray-100"
+            >
                 {dataset.columns.map((column, index) => (
                     <div
                         key={column.name}
-                        className={`flex justify-between items-center px-2 rounded cursor-pointer hover:bg-gray-50 ${
-                            isColumnHighlighted(column.name) ? 'bg-blue-50' : ''
-                        }`}
-                        style={{ height: COLUMN_HEIGHT }}
+                        className="flex items-center gap-2 py-1 cursor-pointer hover:bg-gray-50 rounded px-1"
                         onClick={() => onColumnClick(dataset.id, column.name)}
                     >
-                        <span className="text-[0.75em] text-gray-700 break-words">{column.name}</span>
-                        <span className="text-[0.65em] text-gray-500 break-all ml-2">{column.type}</span>
+                        <div className="text-gray-600">{column.name}</div>
+                        <div className="text-gray-400 text-xs">{column.type}</div>
                     </div>
                 ))}
             </div>

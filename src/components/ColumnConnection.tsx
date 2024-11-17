@@ -52,11 +52,11 @@ const ColumnConnection: React.FC<ColumnConnectionProps> = ({ from, to, columnNam
         : startDataset.x + startDataset.width; // Right edge
     const startY = getColumnY(startDataset, columnName);
     
-    const endX = shouldReverse 
+    let endX = shouldReverse 
         ? endDataset.x + endDataset.width // Right edge
         : endDataset.x; // Left edge
     const endY = getColumnY(endDataset, columnName);
-
+    endX = endX - 20;
     // Create curved path with adjusted control points
     const distance = Math.abs(endX - startX);
     const controlPointOffset = Math.min(distance * 0.2, 50); // Limit the curve's bulge

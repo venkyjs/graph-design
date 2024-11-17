@@ -21,71 +21,64 @@ interface ViewportState {
 
 const calculateDatasetPositions = (config: GraphConfig) => {
     const newDatasets: { [key: string]: DatasetWithPosition } = {};
-    const HORIZONTAL_SPACING = 350; // Increased from 250 to 350
-    const VERTICAL_SPACING = 150;  // Increased from 50 to 150
+    const HORIZONTAL_SPACING = 350; 
+    const VERTICAL_SPACING = 150;  
+    const DEFAULT_CONTAINER_HEIGHT = 800; // Default height if not specified
     
     // First, identify all unique levels and group datasets by level
     const levels: { [level: number]: string[] } = {};
     const visited = new Set<string>();
     
     // Helper function to get the level of a dataset
-    const getLevel = (datasetId: string, level: number = 0) => {
+    const getLevel = (datasetId: string, level = 0) => {
         if (visited.has(datasetId)) return;
         visited.add(datasetId);
         
         levels[level] = levels[level] || [];
         levels[level].push(datasetId);
         
-        // Find all connected datasets
-        const connections = config.connections.filter(conn => conn.from === datasetId);
-        connections.forEach((conn, index) => {
+        // Get all outgoing connections from this dataset
+        const outgoingConnections = config.connections.filter(conn => conn.from === datasetId);
+        
+        // Process all target datasets
+        outgoingConnections.forEach(conn => {
             getLevel(conn.to, level + 1);
         });
     };
     
-    // Start with datasets that have no incoming connections (root nodes)
-    const rootDatasets = config.datasets.filter(d => 
-        !config.connections.some(conn => conn.to === d.id)
+    // Start with root datasets (those with no incoming connections)
+    const rootDatasets = config.datasets.filter(dataset => 
+        !config.connections.some(conn => conn.to === dataset.id)
     );
+    
     rootDatasets.forEach(d => getLevel(d.id));
     
     // Calculate positions for each level
     Object.entries(levels).forEach(([levelStr, datasetIds]) => {
         const level = parseInt(levelStr);
-        const x = level * HORIZONTAL_SPACING + 50; // Add some initial padding
+        const x = level * HORIZONTAL_SPACING + 50;
+
+        // Calculate total height of all datasets in this level
+        const totalHeight = datasetIds.reduce((acc, datasetId) => {
+            const dataset = config.datasets.find(d => d.id === datasetId);
+            return acc + (dataset?.height || 0) + VERTICAL_SPACING;
+        }, -VERTICAL_SPACING); // Subtract one spacing since we don't need it after the last dataset
+
+        // Calculate starting Y position to center the datasets
+        const startY = (DEFAULT_CONTAINER_HEIGHT - totalHeight) / 2;
         
+        let currentY = startY;
         datasetIds.forEach((datasetId, index) => {
             const dataset = config.datasets.find(d => d.id === datasetId);
             if (!dataset) return;
-            
-            // Get all incoming connections to this dataset
-            const incomingConnections = config.connections.filter(conn => conn.to === datasetId);
-            
-            // If this dataset has incoming connections, align it with its source
-            if (incomingConnections.length > 0) {
-                const sourceDataset = newDatasets[incomingConnections[0].from];
-                if (sourceDataset) {
-                    // For input_flow datasets that share the same source, stack them vertically
-                    const siblingConnections = config.connections.filter(
-                        conn => conn.from === incomingConnections[0].from
-                    );
-                    const siblingIndex = siblingConnections.findIndex(conn => conn.to === datasetId);
-                    const y = sourceDataset.y + (siblingIndex * (dataset.height + VERTICAL_SPACING));
-                    
-                    newDatasets[datasetId] = {
-                        ...dataset,
-                        x,
-                        y
-                    };
-                }
-            } else {
-                // For root datasets or those without incoming connections
-                newDatasets[datasetId] = {
-                    ...dataset,
-                    x,
-                    y: index * (dataset.height + VERTICAL_SPACING) + 50 // Add some initial padding
-                };
-            }
+
+            // Always position datasets vertically in their level
+            newDatasets[datasetId] = {
+                ...dataset,
+                x,
+                y: currentY
+            };
+            currentY += dataset.height + VERTICAL_SPACING;
         });
     });
     
@@ -141,7 +134,7 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
         // Calculate scale needed to fit content
         const scaleX = containerWidth / contentWidth;
         const scaleY = containerHeight / contentHeight;
-        const scale = Math.min(scaleX, scaleY, 1); // Cap at 1 to prevent zooming in
+        const scale = Math.min(scaleX, scaleY, 1); 
 
         // Calculate translation to center content
         const translateX = (containerWidth - (contentWidth * scale)) / 2 - (minX * scale) + padding;
@@ -169,7 +162,7 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
 
         const handleWheelEvent = (e: WheelEvent) => {
             e.preventDefault();
-            const zoomSensitivity = 0.002; // Doubled from 0.001 to 0.002
+            const zoomSensitivity = 0.002; 
             const delta = -e.deltaY * zoomSensitivity;
             const newScale = Math.min(Math.max(viewport.scale + delta, 0.1), 2);
 
@@ -180,7 +173,7 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
             const scaleChange = newScale - viewport.scale;
             const newTranslateX = viewport.translateX - (mouseX * scaleChange);
             const newTranslateY = viewport.translateY - (mouseY * scaleChange);
-
+            console.log(`scale: ${newScale}`);
             setViewport({
                 scale: newScale,
                 translateX: newTranslateX,
@@ -205,6 +198,7 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
     const handleMouseMove = (e: React.MouseEvent) => {
         if (isPanning) {
             e.preventDefault();
+            console.log('Panning...');
             setViewport(prev => ({
                 ...prev,
                 translateX: e.clientX - panStart.x,
@@ -255,20 +249,22 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
         const newY = dragStartDatasetPos.y + deltaY;
 
         // Ensure the dataset stays within visible bounds
-        const minX = -dataset.width;
+        const minX = -dataset.width / 2;
         const maxX = (containerRect.width / viewport.scale) - (dataset.width / 2);
         const minY = 0;
         const maxY = (containerRect.height / viewport.scale) - dataset.height;
 
         const boundedX = Math.max(minX, Math.min(maxX, newX));
         const boundedY = Math.max(minY, Math.min(maxY, newY));
-        
+
         setDatasets(prev => ({
             ...prev,
             [dataset.id]: {
                 ...prev[dataset.id],
                 x: boundedX,
-                y: boundedY
+                y: boundedY,
+                width: dataset.width, // Maintain original width
+                height: dataset.height // Maintain original height
             }
         }));
     };
@@ -281,7 +277,7 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
     const handleColumnClick = (datasetId: string, columnName: string) => {
         setHighlightedColumn(prev => 
             prev?.sourceDatasetId === datasetId && prev.columnName === columnName
-                ? null // Toggle off if clicking the same column
+                ? null 
                 : { sourceDatasetId: datasetId, columnName }
         );
     };
@@ -352,11 +348,31 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
         return connections;
     };
 
-    const getConnections = () => {
-        return config.connections.map(connection => ({
-            from: connection.from,
-            to: connection.to,
-        }));
+    const handleDoubleClick = (e: React.MouseEvent) => {
+        e.preventDefault();
+        if (!containerRef.current) return;
+
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const mouseX = e.clientX - containerRect.left;
+        const mouseY = e.clientY - containerRect.top;
+
+        // Calculate the point to zoom towards (in viewport space)
+        const zoomPointX = (mouseX - viewport.translateX) / viewport.scale;
+        const zoomPointY = (mouseY - viewport.translateY) / viewport.scale;
+
+        // Zoom factor for double click (1.5x zoom in)
+        const zoomFactor = 1.5;
+        const newScale = viewport.scale * zoomFactor;
+
+        // Adjust translation to keep the clicked point stationary
+        const newTranslateX = mouseX - (zoomPointX * newScale);
+        const newTranslateY = mouseY - (zoomPointY * newScale);
+        console.log(`dblclick scale: ${newScale}`);
+        setViewport({
+            scale: newScale,
+            translateX: newTranslateX,
+            translateY: newTranslateY
+        });
     };
 
     return (
@@ -368,39 +384,71 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
             onContextMenu={handleContextMenu}
+            onDoubleClick={handleDoubleClick}
             style={{
                 cursor: isPanning ? 'grabbing' : 'grab'
             }}
         >
+            <svg className="absolute top-0 left-0 w-full h-full" style={{ pointerEvents: 'none' }}>
+                <defs>
+                    <marker
+                        id="arrowhead"
+                        markerWidth="10"
+                        markerHeight="7"
+                        refX="2"
+                        refY="3.5"
+                        orient="auto"
+                    >
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#9CA3AF" />
+                    </marker>
+                </defs>
+                <g transform={`translate(${viewport.translateX},${viewport.translateY}) scale(${viewport.scale})`}>
+                    {config.connections.map((connection, index) => {
+                        const fromDataset = datasets[connection.from];
+                        const toDataset = datasets[connection.to];
+
+                        if (!fromDataset || !toDataset) return null;
+
+                        const startX = fromDataset.x + fromDataset.width;
+                        const startY = fromDataset.y + 20;
+                        const endX = toDataset.x - 15;
+                        const endY = toDataset.y + 20;
+
+                        const path = `M ${startX} ${startY} C ${startX + 50} ${startY}, ${endX - 50} ${endY}, ${endX} ${endY}`;
+
+                        return (
+                            <path
+                                key={`${connection.from}-${connection.to}-${index}`}
+                                d={path}
+                                stroke="#9CA3AF"
+                                strokeWidth={2}
+                                fill="none"
+                                markerEnd="url(#arrowhead)"
+                            />
+                        );
+                    })}
+                </g>
+            </svg>
+
             <div
-                className="absolute w-full h-full"
                 style={{
                     transform: `translate(${viewport.translateX}px, ${viewport.translateY}px) scale(${viewport.scale})`,
                     transformOrigin: '0 0',
-                    transition: 'transform 0.1s ease-out'
                 }}
             >
                 {/* Render datasets */}
-                {Object.values(datasets).map((dataset) => (
+                {Object.values(datasets).map(dataset => (
                     <Dataset
                         key={dataset.id}
                         dataset={dataset}
                         onColumnClick={handleColumnClick}
-                        highlightedColumn={highlightedColumn}
-                        onDragStart={(e) => handleDragStart(e, dataset)}
-                        onDrag={(e) => handleDrag(e, dataset)}
+                        onDragStart={handleDragStart}
+                        onDrag={handleDrag}
                         onDragEnd={handleDragEnd}
                         x={dataset.x}
                         y={dataset.y}
-                    />
-                ))}
-
-                {/* Render connections */}
-                {getConnections().map((connection, index) => (
-                    <Connection
-                        key={`${connection.from}-${connection.to}-${index}`}
-                        from={datasets[connection.from]}
-                        to={datasets[connection.to]}
+                        width={dataset.width}
+                        height={dataset.height}
                     />
                 ))}
 
@@ -410,7 +458,8 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
                         key={`col-${connection.from.id}-${connection.to.id}-${index}`}
                         from={connection.from}
                         to={connection.to}
-                        columnName={connection.columnName}
+                        fromColumn={connection.fromColumn}
+                        toColumn={connection.toColumn}
                     />
                 ))}
             </div>
