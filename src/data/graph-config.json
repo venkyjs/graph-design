@@ -1,55 +1,138 @@
 {
   "datasets": [
     {
-      "id": "dataset1",
-      "display_name": "BCBS 625",
+      "id": "report1",
+      "display_name": "Sales Report",
       "width": 200,
-      "height": 200,
-      "type": "Report",
+      "height": 150,
+      "type": "report",
       "columns": [
-        { "name": "id", "type": "UUID" },
-        { "name": "username", "type": "string" },
-        { "name": "email", "type": "string" },
-        { "name": "createdAt", "type": "datetime" }
+        { "name": "id", "type": "string" },
+        { "name": "sales_amount", "type": "number" },
+        { "name": "date", "type": "date" },
+        { "name": "region", "type": "string" }
       ]
     },
     {
-      "id": "dataset2",
-      "display_name": "DS1",
+      "id": "output_flow1",
+      "display_name": "Sales Aggregation",
       "width": 200,
-      "height": 200,
-      "type": "Input Flow",
+      "height": 150,
+      "type": "output_flow",
       "columns": [
-        { "name": "id", "type": "UUID" },
-        { "name": "title", "type": "string" },
-        { "name": "content", "type": "text" },
-        { "name": "userId", "type": "UUID" },
-        { "name": "publishedAt", "type": "datetime" }
+        { "name": "id", "type": "string" },
+        { "name": "total_sales", "type": "number" },
+        { "name": "period", "type": "string" }
       ]
     },
     {
-      "id": "dataset3",
-      "display_name":"DS2",
+      "id": "input_flow1_1",
+      "display_name": "Regional Sales",
       "width": 200,
-      "height": 200,
-      "type": "Output Flow",
+      "height": 150,
+      "type": "input_flow",
       "columns": [
-        { "name": "id", "type": "UUID" },
-        { "name": "postId", "type": "UUID" },
-        { "name": "userId", "type": "UUID" },
-        { "name": "content", "type": "text" },
-        { "name": "createdAt", "type": "datetime" }
+        { "name": "id", "type": "string" },
+        { "name": "region_sales", "type": "number" },
+        { "name": "region_id", "type": "string" }
+      ]
+    },
+    {
+      "id": "input_flow1_2",
+      "display_name": "Time Analysis",
+      "width": 200,
+      "height": 150,
+      "type": "input_flow",
+      "columns": [
+        { "name": "id", "type": "string" },
+        { "name": "time_period", "type": "string" },
+        { "name": "trend", "type": "number" }
+      ]
+    },
+    {
+      "id": "output_flow2",
+      "display_name": "Regional Breakdown",
+      "width": 200,
+      "height": 150,
+      "type": "output_flow",
+      "columns": [
+        { "name": "id", "type": "string" },
+        { "name": "region_total", "type": "number" },
+        { "name": "growth_rate", "type": "number" }
+      ]
+    },
+    {
+      "id": "input_flow2_1",
+      "display_name": "Growth Analysis",
+      "width": 200,
+      "height": 150,
+      "type": "input_flow",
+      "columns": [
+        { "name": "id", "type": "string" },
+        { "name": "growth_factor", "type": "number" },
+        { "name": "prediction", "type": "number" }
+      ]
+    },
+    {
+      "id": "output_flow3",
+      "display_name": "Predictions",
+      "width": 200,
+      "height": 150,
+      "type": "output_flow",
+      "columns": [
+        { "name": "id", "type": "string" },
+        { "name": "forecast", "type": "number" },
+        { "name": "confidence", "type": "number" }
+      ]
+    },
+    {
+      "id": "input_flow3_1",
+      "display_name": "Historical Data",
+      "width": 200,
+      "height": 150,
+      "type": "input_flow",
+      "columns": [
+        { "name": "id", "type": "string" },
+        { "name": "past_sales", "type": "number" },
+        { "name": "year", "type": "number" }
+      ]
+    },
+    {
+      "id": "input_flow3_2",
+      "display_name": "Market Factors",
+      "width": 200,
+      "height": 150,
+      "type": "input_flow",
+      "columns": [
+        { "name": "id", "type": "string" },
+        { "name": "market_index", "type": "number" },
+        { "name": "influence", "type": "number" }
+      ]
+    },
+    {
+      "id": "output_flow4",
+      "display_name": "Final Analysis",
+      "width": 200,
+      "height": 150,
+      "type": "output_flow",
+      "columns": [
+        { "name": "id", "type": "string" },
+        { "name": "final_score", "type": "number" },
+        { "name": "recommendations", "type": "string" }
       ]
     }
   ],
   "connections": [
-    {
-      "from": "dataset1",
-      "to": "dataset2"
-    },
-    {
-      "from": "dataset2",
-      "to": "dataset3"
-    }
+    { "from": "report1", "to": "output_flow1" },
+    { "from": "output_flow1", "to": "input_flow1_1" },
+    { "from": "output_flow1", "to": "input_flow1_2" },
+    { "from": "input_flow1_1", "to": "output_flow2" },
+    { "from": "input_flow1_2", "to": "output_flow2" },
+    { "from": "output_flow2", "to": "input_flow2_1" },
+    { "from": "input_flow2_1", "to": "output_flow3" },
+    { "from": "output_flow3", "to": "input_flow3_1" },
+    { "from": "output_flow3", "to": "input_flow3_2" },
+    { "from": "input_flow3_1", "to": "output_flow4" },
+    { "from": "input_flow3_2", "to": "output_flow4" }
   ]
 }

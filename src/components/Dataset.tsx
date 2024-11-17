@@ -1,116 +1,114 @@
-import React from 'react';
-import { DatasetWithPosition, Column, HighlightedColumn } from '../types/graph';
+import React, { useEffect, useRef } from 'react';
+import { Dataset as DatasetType, Column } from '../types/graph';
+
+const COLUMN_HEIGHT = 20;
+const ROW_PADDING = 4;
+const HEADER_PADDING = 12;
+const CONTAINER_PADDING = 12;
+const MIN_WIDTH = 200;
 
 interface DatasetProps {
-    dataset: DatasetWithPosition;
-    onDragStart: (e: React.MouseEvent, id: string) => void;
-    onDrag: (newX: number, newY: number, id: string) => void;
+    dataset: DatasetType;
     onColumnClick: (datasetId: string, columnName: string) => void;
-    highlightedColumn: HighlightedColumn | null;
+    highlightedColumn?: { sourceDatasetId: string; columnName: string };
+    onDragStart: (e: React.DragEvent, dataset: DatasetType) => void;
+    onDrag: (e: React.DragEvent, dataset: DatasetType) => void;
+    onDragEnd: (e: React.DragEvent) => void;
+    x: number;
+    y: number;
 }
 
-const Dataset: React.FC<DatasetProps> = ({ 
+const Dataset: React.FC<DatasetProps> = ({
     dataset,
+    onColumnClick,
+    highlightedColumn,
     onDragStart,
     onDrag,
-    onColumnClick,
-    highlightedColumn 
+    onDragEnd,
+    x,
+    y
 }) => {
-    const {
-        id,
-        x,
-        y,
-        width,
-        height,
-        type,
-        display_name,
-        columns = [] // Provide default empty array
-    } = dataset;
+    const headerRef = useRef<HTMLDivElement>(null);
+    const contentRef = useRef<HTMLDivElement>(null);
 
-    const [isDragging, setIsDragging] = React.useState(false);
-    const dragStartPos = React.useRef({ x: 0, y: 0 });
+    useEffect(() => {
+        const header = headerRef.current;
+        const content = contentRef.current;
+        if (!header || !content) return;
 
-    const handleMouseDown = (e: React.MouseEvent) => {
-        const target = e.target as HTMLElement;
-        if (target.closest('[data-drag-handle="true"]')) {
-            e.preventDefault();
-            setIsDragging(true);
-            dragStartPos.current = { x: e.clientX - x, y: e.clientY - y };
-            onDragStart(e, id);
+        // Calculate maximum width needed for header and content
+        const headerWidth = Math.max(
+            header.scrollWidth + (HEADER_PADDING * 2),
+            MIN_WIDTH
+        );
+
+        const contentWidth = Math.max(
+            ...Array.from(content.children).map(child => child.scrollWidth + (HEADER_PADDING * 2)),
+            MIN_WIDTH
+        );
+
+        const maxWidth = Math.max(headerWidth, contentWidth);
+
+        // Update dataset width if different from current
+        if (maxWidth !== dataset.width) {
+            dataset.width = maxWidth;
         }
+    }, [dataset]);
+
+    // Calculate dynamic height based on header and columns
+    const calculateHeight = (columns: Column[]): number => {
+        const headerHeight = headerRef.current?.offsetHeight || 0;
+        return headerHeight + // Dynamic header height
+               HEADER_PADDING * 2 + // Header padding
+               columns.length * COLUMN_HEIGHT + // Total height of all columns
+               (columns.length - 1) * ROW_PADDING + // Padding between columns
+               CONTAINER_PADDING * 2; // Container padding
     };
 
-    const handleMouseMove = (e: MouseEvent) => {
-        if (isDragging) {
-            const newX = e.clientX - dragStartPos.current.x;
-            const newY = e.clientY - dragStartPos.current.y;
-            onDrag(newX, newY, id);
-        }
+    const isColumnHighlighted = (columnName: string) => {
+        return highlightedColumn?.sourceDatasetId === dataset.id && 
+               highlightedColumn?.columnName === columnName;
     };
-
-    const handleMouseUp = () => {
-        if (isDragging) {
-            setIsDragging(false);
-        }
-    };
-
-    const isColumnHighlighted = (columnName: string): boolean => {
-        if (!highlightedColumn) return false;
-        if (highlightedColumn.sourceDatasetId !== id) return false;
-        return highlightedColumn.columnName === columnName;
-    };
-
-    React.useEffect(() => {
-        if (isDragging) {
-            document.addEventListener('mousemove', handleMouseMove);
-            document.addEventListener('mouseup', handleMouseUp);
-        } else {
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
-        }
-        return () => {
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
-        };
-    }, [isDragging]);
 
     return (
         <div
-            className="absolute border-2 border-gray-300 bg-white rounded-lg shadow-lg"
+            className="absolute bg-white rounded-lg shadow-md border border-gray-200 cursor-move text-sm"
             style={{
-                left: x,
-                top: y,
-                width,
-                height,
-                cursor: isDragging ? 'grabbing' : 'grab'
+                transform: `translate(${x}px, ${y}px)`,
+                width: dataset.width,
+                minWidth: MIN_WIDTH,
+                transition: 'height 0.3s ease, width 0.3s ease'
             }}
-            onMouseDown={handleMouseDown}
+            draggable
+            onDragStart={(e) => onDragStart(e, dataset)}
+            onDrag={(e) => onDrag(e, dataset)}
+            onDragEnd={onDragEnd}
         >
-            {/* Dataset Header */}
+            {/* Header */}
             <div 
-                className="px-4 py-2 bg-gray-100 border-b-2 border-gray-300 rounded-t-lg flex justify-between items-center"
-                data-drag-handle="true"
+                ref={headerRef}
+                className="flex justify-between items-center px-3 py-2 flex-wrap gap-2"
             >
-                <div className="font-semibold text-gray-700">{display_name}</div>
-                <div className="text-sm text-gray-500 italic">{type}</div>
+                <span className="font-semibold text-gray-700 break-words text-[0.8em]">{dataset.display_name}</span>
+                <span className="text-[0.7em] italic text-gray-500 break-all">{dataset.id}</span>
             </div>
 
-            {/* Dataset Columns */}
-            <div className="p-3">
-                {columns.map((column, index) => (
+            {/* Divider */}
+            <div className="border-t border-gray-200"></div>
+
+            {/* Columns */}
+            <div ref={contentRef} className="p-3 space-y-1">
+                {dataset.columns.map((column, index) => (
                     <div
-                        key={`${id}-${column.name}`}
-                        className={`px-2 py-1 cursor-pointer rounded transition-colors ${
-                            isColumnHighlighted(column.name)
-                                ? 'bg-blue-100 hover:bg-blue-200'
-                                : 'hover:bg-gray-100'
+                        key={column.name}
+                        className={`flex justify-between items-center px-2 rounded cursor-pointer hover:bg-gray-50 ${
+                            isColumnHighlighted(column.name) ? 'bg-blue-50' : ''
                         }`}
-                        onClick={() => onColumnClick(id, column.name)}
+                        style={{ height: COLUMN_HEIGHT }}
+                        onClick={() => onColumnClick(dataset.id, column.name)}
                     >
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-700">{column.name}</span>
-                            <span className="text-xs text-gray-500">{column.type}</span>
-                        </div>
+                        <span className="text-[0.75em] text-gray-700 break-words">{column.name}</span>
+                        <span className="text-[0.65em] text-gray-500 break-all ml-2">{column.type}</span>
                     </div>
                 ))}
             </div>
