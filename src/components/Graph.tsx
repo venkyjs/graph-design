@@ -24,6 +24,11 @@ interface ConnectedColumn {
     columnName: string;
 }
 
+const HEADER_HEIGHT = 50; // Height of the header
+const SEARCH_BOX_HEIGHT = 52; // Height of search box
+const COLUMN_HEIGHT = 20; // Height of each column
+const ROW_PADDING = 4; // Padding between rows
+
 const calculateDatasetPositions = (config: GraphConfig) => {
     const newDatasets: { [key: string]: DatasetWithPosition } = {};
     const HORIZONTAL_SPACING = 500; 
@@ -549,9 +554,9 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
                         if (!fromDataset || !toDataset) return null;
 
                         const startX = fromDataset.x + fromDataset.width;
-                        const startY = fromDataset.y + 20;
+                        const startY = fromDataset.y + (HEADER_HEIGHT / 2); // Center of header
                         const endX = toDataset.x - 15;
-                        const endY = toDataset.y + 20;
+                        const endY = toDataset.y + (HEADER_HEIGHT / 2);
 
                         const path = `M ${startX} ${startY} C ${startX + 50} ${startY}, ${endX - 50} ${endY}, ${endX} ${endY}`;
 
