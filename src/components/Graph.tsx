@@ -3,6 +3,7 @@ import { Dataset as DatasetType, Connection as ConnectionType, GraphConfig, High
 import Dataset from './Dataset';
 import Connection from './Connection';
 import ColumnConnection from './ColumnConnection';
+import ContextMenu from './ContextMenu';
 
 interface GraphProps {
     config: GraphConfig;
@@ -125,6 +126,7 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
     const [panStart, setPanStart] = useState({ x: 0, y: 0 });
     const containerRef = useRef<HTMLDivElement>(null);
     const [isBackgroundClicked, setIsBackgroundClicked] = useState(false);
+    const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
     const calculateInitialViewport = () => {
         if (!containerRef.current || Object.keys(datasets).length === 0) return {
@@ -508,6 +510,48 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
         });
     }, []);
 
+    const handleContextMenu = (e: React.MouseEvent) => {
+        e.preventDefault();
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (rect) {
+            // Convert screen coordinates to graph coordinates
+            const x = e.clientX;
+            const y = e.clientY;
+            setContextMenu({ x, y });
+        }
+    };
+
+    const handleZoomIn = () => {
+        if (!contextMenu || !containerRef.current) return;
+
+        const rect = containerRef.current.getBoundingClientRect();
+        const zoomPoint = {
+            x: (contextMenu.x - rect.left - viewport.translateX) / viewport.scale,
+            y: (contextMenu.y - rect.top - viewport.translateY) / viewport.scale
+        };
+
+        setViewport(prev => ({
+            ...prev,
+            scale: 1,
+            translateX: -zoomPoint.x + (contextMenu.x - rect.left),
+            translateY: -zoomPoint.y + (contextMenu.y - rect.top)
+        }));
+        setContextMenu(null);
+    };
+
+    const handleZoomOut = () => {
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!rect) return;
+
+        setViewport(prev => ({
+            ...prev,
+            scale: 0.5,
+            translateX: rect.width * 0.25,
+            translateY: rect.height * 0.25
+        }));
+        setContextMenu(null);
+    };
+
     return (
         <div 
             ref={containerRef}
@@ -518,7 +562,7 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseLeave}
-            onContextMenu={(e) => e.preventDefault()}
+            onContextMenu={handleContextMenu}
             onDoubleClick={handleDoubleClick}
             style={{
                 cursor: isPanning ? 'grabbing' : 'grab',
@@ -611,6 +655,16 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
                     ))}
                 </div>
             </div>
+
+            {contextMenu && (
+                <ContextMenu
+                    x={contextMenu.x}
+                    y={contextMenu.y}
+                    onClose={() => setContextMenu(null)}
+                    onZoomIn={handleZoomIn}
+                    onZoomOut={handleZoomOut}
+                />
+            )}
         </div>
     );
 };
