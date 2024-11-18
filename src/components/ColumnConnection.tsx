@@ -41,7 +41,7 @@ const ColumnConnection: React.FC<ColumnConnectionProps> = ({ from, to, columnNam
         const columnHeight = 24; // Height of each column
         const totalHeight = dataset.columns.length * columnHeight;
         const startY = dataset.y + (dataset.height - totalHeight) / 2;
-        const y = startY + columnIndex * columnHeight + columnHeight / 2;
+        const y = startY + columnIndex * columnHeight + 8 + columnHeight / 2;
         
         console.log('Calculated Y position:', { columnHeight, totalHeight, startY, y });
         return y;
@@ -65,7 +65,7 @@ const ColumnConnection: React.FC<ColumnConnectionProps> = ({ from, to, columnNam
     const controlPoint2X = endX - controlPointOffset;
     const controlPoint2Y = endY;
 
-    endX = endX - 10;
+    endX = endX - 22;
 
     // Create the bezier curve path
     const path = `
@@ -93,7 +93,7 @@ const ColumnConnection: React.FC<ColumnConnectionProps> = ({ from, to, columnNam
                     id={`column-arrowhead-${fromId}-${toId}`}
                     markerWidth="10"
                     markerHeight="7"
-                    refX="3"
+                    refX="0"
                     refY="3.5"
                     orient="auto"
                 >
