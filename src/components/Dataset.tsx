@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Dataset as DatasetType, Column, HighlightedColumn } from '../types/graph';
 
 const COLUMN_HEIGHT = 20;
@@ -6,7 +6,16 @@ const ROW_PADDING = 4;
 const HEADER_PADDING = 12;
 const CONTAINER_PADDING = 12;
 const SHOW_MORE_HEIGHT = 32; // Height for Show More/Less link
+const SEARCH_BOX_HEIGHT = 52; // Height including padding and borders
 const MIN_WIDTH = 300;
+
+// Calculate minimum height for 3 columns + search box + show more
+const MIN_HEIGHT = HEADER_PADDING * 2 + // Header padding
+                  SEARCH_BOX_HEIGHT + // Search box height
+                  (COLUMN_HEIGHT * 3) + // 3 columns
+                  (ROW_PADDING * 2) + // Padding between columns
+                  SHOW_MORE_HEIGHT + // Show more/less link
+                  (CONTAINER_PADDING * 2); // Container padding
 
 interface DatasetProps {
     dataset: DatasetType;
@@ -41,6 +50,16 @@ const Dataset: React.FC<DatasetProps> = ({
     const contentRef = useRef<HTMLDivElement>(null);
     const [isExpanded, setIsExpanded] = useState(false);
     const [boxHeight, setBoxHeight] = useState(height);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const filteredColumns = useMemo(() => {
+        if (!searchTerm) return dataset.columns;
+        const lowerSearchTerm = searchTerm.toLowerCase();
+        return dataset.columns.filter(column => 
+            column.name.toLowerCase().includes(lowerSearchTerm) ||
+            column.type.toLowerCase().includes(lowerSearchTerm)
+        );
+    }, [dataset.columns, searchTerm]);
 
     // Calculate width only once on mount
     useEffect(() => {
@@ -69,26 +88,29 @@ const Dataset: React.FC<DatasetProps> = ({
 
     // Handle height changes separately
     useEffect(() => {
-        const newHeight = calculateHeight(dataset.columns);
+        const newHeight = calculateHeight(filteredColumns);
         setBoxHeight(newHeight);
         
         // Notify parent of height change
         if (onHeightChange && newHeight !== height) {
             onHeightChange(dataset.id, newHeight);
         }
-    }, [dataset.columns, isExpanded, height, onHeightChange]);
+    }, [filteredColumns, isExpanded, height, onHeightChange]);
 
     // Calculate dynamic height based on header and columns
     const calculateHeight = (columns: Column[]): number => {
         const headerHeight = headerRef.current?.offsetHeight || 0;
         const visibleColumns = isExpanded ? columns.length : Math.min(3, columns.length);
         
-        return headerHeight + // Header height
+        const calculatedHeight = headerHeight + // Header height
                (visibleColumns * COLUMN_HEIGHT) + // Height for visible columns
                ((visibleColumns - 1) * ROW_PADDING) + // Padding between columns
                (CONTAINER_PADDING * 2) + // Top and bottom padding
+               SEARCH_BOX_HEIGHT + // Search box height
                (columns.length > 3 ? SHOW_MORE_HEIGHT : 0) + // Show More/Less link height
                4; // Extra padding for border
+
+        return Math.max(calculatedHeight, MIN_HEIGHT);
     };
 
     const isColumnConnected = (columnName: string) => {
@@ -123,6 +145,15 @@ const Dataset: React.FC<DatasetProps> = ({
     };
 
     const handleMouseDown = (e: React.MouseEvent) => {
+        // Don't initiate drag if clicking on input or links
+        if (
+            e.target instanceof HTMLInputElement || 
+            e.target instanceof HTMLAnchorElement ||
+            (e.target as HTMLElement).closest('.dataset-column') !== null
+        ) {
+            return;
+        }
+
         // Only handle left mouse button
         if (e.button !== 0) return;
         
@@ -160,6 +191,14 @@ const Dataset: React.FC<DatasetProps> = ({
         document.addEventListener('mouseup', handleMouseUp, true);
     };
 
+    const handleSearchClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+    };
+
+    const handleSearchMouseDown = (e: React.MouseEvent) => {
+        e.stopPropagation();
+    };
+
     const handleShowMore = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
@@ -178,6 +217,7 @@ const Dataset: React.FC<DatasetProps> = ({
                 position: 'absolute',
                 userSelect: 'none',
                 minWidth: MIN_WIDTH,
+                minHeight: MIN_HEIGHT,
                 maxWidth: width,
                 transition: 'height 0.3s ease-in-out'
             }}
@@ -200,25 +240,44 @@ const Dataset: React.FC<DatasetProps> = ({
                     overflow: 'hidden'
                 }}
             >
+                {/* Search box */}
+                <div className="p-3 border-b border-gray-200" onMouseDown={handleSearchMouseDown} onClick={handleSearchClick}>
+                    <input
+                        type="text"
+                        placeholder="Search columns..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
+
                 <div className="flex-1 overflow-y-auto">
                     <div className="flex flex-col">
-                        {dataset.columns.slice(0, isExpanded ? undefined : 3).map((column, index) => (
-                            <div
-                                key={column.name}
-                                className={getColumnClassName(column.name)}
-                                data-testid={`column-${dataset.id}-${column.name}`}
-                                data-highlighted={isColumnHighlighted(column.name)}
-                                onClick={handleColumnClick(column.name)}
-                                onMouseDown={(e) => e.stopPropagation()} // Prevent drag when clicking column
-                                style={{ pointerEvents: 'auto' }}
-                            >
-                                <div className="text-gray-600">{column.name}</div>
-                                <div className="text-gray-400 text-xs">{column.type}</div>
+                        {filteredColumns.length === 0 ? (
+                            <div className="text-gray-500 text-sm p-4 text-center">
+                                No matches found!
                             </div>
-                        ))}
+                        ) : (
+                            filteredColumns.slice(0, isExpanded ? undefined : 3).map((column, index) => (
+                                <div
+                                    key={column.name}
+                                    className={getColumnClassName(column.name)}
+                                    data-testid={`column-${dataset.id}-${column.name}`}
+                                    data-highlighted={isColumnHighlighted(column.name)}
+                                    onClick={handleColumnClick(column.name)}
+                                    onMouseDown={(e) => e.stopPropagation()} // Prevent drag when clicking column
+                                    style={{ pointerEvents: 'auto' }}
+                                >
+                                    <div className="text-gray-600">{column.name}</div>
+                                    <div className="text-gray-400 text-xs">{column.type}</div>
+                                </div>
+                            ))
+                        )}
                     </div>
                 </div>
-                {dataset.columns.length > 3 && (
+                {filteredColumns.length > 3 && (
                     <div
                         className={`dataset-column flex items-center justify-center py-2 cursor-pointer px-3 text-blue-600 hover:bg-gray-50 ${isExpanded ? 'border-t border-gray-100 bg-white' : ''}`}
                         onClick={handleShowMore}
@@ -229,7 +288,7 @@ const Dataset: React.FC<DatasetProps> = ({
                             boxShadow: isExpanded ? '0 -4px 6px -1px rgba(0, 0, 0, 0.1)' : 'none'
                         }}
                     >
-                        {isExpanded ? 'Show Less' : `Show ${dataset.columns.length - 3} More`}
+                        {isExpanded ? 'Show Less' : `Show ${filteredColumns.length - 3} More`}
                     </div>
                 )}
             </div>

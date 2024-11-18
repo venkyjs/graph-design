@@ -151,21 +151,21 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
             maxY = Math.max(maxY, dataset.y + dataset.height);
         });
 
-        // Add padding
-        const padding = 50;
+        // Add padding (100px on all sides)
+        const padding = 100;
         const contentWidth = maxX - minX + (padding * 2);
         const contentHeight = maxY - minY + (padding * 2);
 
         // Calculate scale to fit all content
         const scaleX = containerWidth / contentWidth;
         const scaleY = containerHeight / contentHeight;
-        const scale = Math.min(Math.min(scaleX, scaleY), 1); // Cap at 1 to prevent zooming in too much
+        const scale = Math.min(scaleX, scaleY); // Remove the cap at 1 to ensure content fits
 
         // Calculate translations to center the content
         const scaledContentWidth = contentWidth * scale;
         const scaledContentHeight = contentHeight * scale;
-        const translateX = (containerWidth - scaledContentWidth) / 2 - (minX * scale) + padding;
-        const translateY = (containerHeight - scaledContentHeight) / 2 - (minY * scale) + padding;
+        const translateX = (containerWidth - scaledContentWidth) / 2 - (minX * scale) + (padding * scale);
+        const translateY = (containerHeight - scaledContentHeight) / 2 - (minY * scale) + (padding * scale);
 
         return {
             scale,
@@ -174,13 +174,30 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
         };
     };
 
-    // Set initial viewport on mount and when datasets change
+    // Set initial viewport on mount
     useEffect(() => {
+        // Only set initial viewport on mount or when container size changes
         const initialViewport = calculateInitialViewport();
         if (initialViewport) {
             setViewport(initialViewport);
         }
-    }, [datasets]); // Only recalculate when datasets change
+
+        // Add resize observer to handle container size changes
+        const resizeObserver = new ResizeObserver(() => {
+            const newViewport = calculateInitialViewport();
+            if (newViewport) {
+                setViewport(newViewport);
+            }
+        });
+
+        if (containerRef.current) {
+            resizeObserver.observe(containerRef.current);
+        }
+
+        return () => {
+            resizeObserver.disconnect();
+        };
+    }, []);
 
     // Modified wheel handler to maintain position
     useEffect(() => {
@@ -481,37 +498,15 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
         });
     };
 
-    const handleDatasetHeightChange = (datasetId: string, newHeight: number) => {
-        // Update the dataset's height
-        setDatasets(prev => {
-            const updatedDataset = {
-                ...prev[datasetId],
-                height: newHeight
-            };
-
-            // Find all datasets below this one and adjust their positions
-            const updatedDatasets = { ...prev };
-            const changedDataset = updatedDataset;
-            
-            Object.values(updatedDatasets).forEach(dataset => {
-                if (dataset.id !== datasetId && 
-                    dataset.x === changedDataset.x && // Same column
-                    dataset.y > changedDataset.y) {  // Below the changed dataset
-                    
-                    // Calculate the height difference
-                    const heightDiff = newHeight - prev[datasetId].height;
-                    
-                    // Move the dataset down by the height difference
-                    dataset.y += heightDiff;
-                }
-            });
-
+    const handleDatasetHeightChange = useCallback((datasetId: string, newHeight: number) => {
+        setDatasets(prevDatasets => {
+            const updatedDataset = { ...prevDatasets[datasetId], height: newHeight };
             return {
-                ...updatedDatasets,
+                ...prevDatasets,
                 [datasetId]: updatedDataset
             };
         });
-    };
+    }, []);
 
     return (
         <div 
