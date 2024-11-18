@@ -10,7 +10,18 @@
         { "name": "id", "type": "string" },
         { "name": "sales_amount", "type": "number" },
         { "name": "date", "type": "date" },
-        { "name": "region", "type": "string" }
+        { "name": "region", "type": "string" },
+        { "name": "product_id", "type": "string" },
+        { "name": "product_name", "type": "string" },
+        { "name": "customer_id", "type": "string" },
+        { "name": "customer_name", "type": "string" },
+        { "name": "quantity", "type": "number" },
+        { "name": "unit_price", "type": "number" },
+        { "name": "discount", "type": "number" },
+        { "name": "tax", "type": "number" },
+        { "name": "shipping_cost", "type": "number" },
+        { "name": "payment_method", "type": "string" },
+        { "name": "order_status", "type": "string" }
       ]
     },
     {
@@ -22,7 +33,16 @@
       "columns": [
         { "name": "id", "type": "string" },
         { "name": "total_sales", "type": "number" },
-        { "name": "period", "type": "string" }
+        { "name": "period", "type": "string" },
+        { "name": "region_count", "type": "number" },
+        { "name": "avg_order_value", "type": "number" },
+        { "name": "total_customers", "type": "number" },
+        { "name": "total_products", "type": "number" },
+        { "name": "total_quantity", "type": "number" },
+        { "name": "total_discount", "type": "number" },
+        { "name": "total_tax", "type": "number" },
+        { "name": "total_shipping", "type": "number" },
+        { "name": "success_rate", "type": "number" }
       ]
     },
     {
@@ -34,7 +54,16 @@
       "columns": [
         { "name": "id", "type": "string" },
         { "name": "region_sales", "type": "number" },
-        { "name": "region_id", "type": "string" }
+        { "name": "region_id", "type": "string" },
+        { "name": "region_name", "type": "string" },
+        { "name": "country", "type": "string" },
+        { "name": "city", "type": "string" },
+        { "name": "postal_code", "type": "string" },
+        { "name": "store_count", "type": "number" },
+        { "name": "employee_count", "type": "number" },
+        { "name": "market_size", "type": "string" },
+        { "name": "population", "type": "number" },
+        { "name": "competition_index", "type": "number" }
       ]
     },
     {
@@ -46,7 +75,16 @@
       "columns": [
         { "name": "id", "type": "string" },
         { "name": "time_period", "type": "string" },
-        { "name": "trend", "type": "number" }
+        { "name": "trend", "type": "number" },
+        { "name": "seasonality", "type": "number" },
+        { "name": "year", "type": "number" },
+        { "name": "quarter", "type": "number" },
+        { "name": "month", "type": "number" },
+        { "name": "week", "type": "number" },
+        { "name": "day_of_week", "type": "number" },
+        { "name": "is_holiday", "type": "boolean" },
+        { "name": "is_weekend", "type": "boolean" },
+        { "name": "peak_hours", "type": "string" }
       ]
     },
     {
@@ -58,7 +96,16 @@
       "columns": [
         { "name": "region_id", "type": "string" },
         { "name": "region_total", "type": "number" },
-        { "name": "growth_rate", "type": "number" }
+        { "name": "growth_rate", "type": "number" },
+        { "name": "market_share", "type": "number" },
+        { "name": "customer_satisfaction", "type": "number" },
+        { "name": "retention_rate", "type": "number" },
+        { "name": "acquisition_cost", "type": "number" },
+        { "name": "operational_cost", "type": "number" },
+        { "name": "profit_margin", "type": "number" },
+        { "name": "inventory_turnover", "type": "number" },
+        { "name": "employee_productivity", "type": "number" },
+        { "name": "customer_lifetime_value", "type": "number" }
       ]
     },
     {
@@ -70,7 +117,15 @@
       "columns": [
         { "name": "id", "type": "string" },
         { "name": "growth_factor", "type": "number" },
-        { "name": "prediction", "type": "number" }
+        { "name": "prediction", "type": "number" },
+        { "name": "market_potential", "type": "number" },
+        { "name": "risk_factor", "type": "number" },
+        { "name": "investment_required", "type": "number" },
+        { "name": "expected_roi", "type": "number" },
+        { "name": "breakeven_period", "type": "number" },
+        { "name": "market_saturation", "type": "number" },
+        { "name": "competition_threat", "type": "number" },
+        { "name": "opportunity_score", "type": "number" }
       ]
     },
     {
@@ -82,7 +137,15 @@
       "columns": [
         { "name": "id", "type": "string" },
         { "name": "forecast", "type": "number" },
-        { "name": "confidence", "type": "number" }
+        { "name": "confidence", "type": "number" },
+        { "name": "error_margin", "type": "number" },
+        { "name": "best_case", "type": "number" },
+        { "name": "worst_case", "type": "number" },
+        { "name": "probability", "type": "number" },
+        { "name": "accuracy_score", "type": "number" },
+        { "name": "revision_count", "type": "number" },
+        { "name": "last_updated", "type": "date" },
+        { "name": "model_version", "type": "string" }
       ]
     },
     {
@@ -94,7 +157,15 @@
       "columns": [
         { "name": "id", "type": "string" },
         { "name": "past_sales", "type": "number" },
-        { "name": "year", "type": "number" }
+        { "name": "year", "type": "number" },
+        { "name": "growth_rate", "type": "number" },
+        { "name": "market_conditions", "type": "string" },
+        { "name": "economic_indicators", "type": "number" },
+        { "name": "competitor_sales", "type": "number" },
+        { "name": "market_share", "type": "number" },
+        { "name": "customer_count", "type": "number" },
+        { "name": "average_price", "type": "number" },
+        { "name": "profit_margin", "type": "number" }
       ]
     },
     {
@@ -106,7 +177,15 @@
       "columns": [
         { "name": "id", "type": "string" },
         { "name": "market_index", "type": "number" },
-        { "name": "influence", "type": "number" }
+        { "name": "influence", "type": "number" },
+        { "name": "gdp_growth", "type": "number" },
+        { "name": "inflation_rate", "type": "number" },
+        { "name": "unemployment_rate", "type": "number" },
+        { "name": "consumer_confidence", "type": "number" },
+        { "name": "interest_rate", "type": "number" },
+        { "name": "exchange_rate", "type": "number" },
+        { "name": "oil_price", "type": "number" },
+        { "name": "market_volatility", "type": "number" }
       ]
     },
     {
@@ -118,7 +197,16 @@
       "columns": [
         { "name": "id", "type": "string" },
         { "name": "final_score", "type": "number" },
-        { "name": "recommendations", "type": "string" }
+        { "name": "recommendations", "type": "string" },
+        { "name": "risk_assessment", "type": "string" },
+        { "name": "priority_level", "type": "string" },
+        { "name": "impact_score", "type": "number" },
+        { "name": "implementation_cost", "type": "number" },
+        { "name": "expected_benefits", "type": "number" },
+        { "name": "timeline_months", "type": "number" },
+        { "name": "resource_requirements", "type": "string" },
+        { "name": "success_probability", "type": "number" },
+        { "name": "stakeholder_approval", "type": "boolean" }
       ]
     }
   ],

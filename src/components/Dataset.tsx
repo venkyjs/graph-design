@@ -1,11 +1,12 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Dataset as DatasetType, Column, HighlightedColumn } from '../types/graph';
 
 const COLUMN_HEIGHT = 20;
 const ROW_PADDING = 4;
 const HEADER_PADDING = 12;
 const CONTAINER_PADDING = 12;
-const MIN_WIDTH = 200;
+const SHOW_MORE_HEIGHT = 32; // Height for Show More/Less link
+const MIN_WIDTH = 300;
 
 interface DatasetProps {
     dataset: DatasetType;
@@ -15,6 +16,7 @@ interface DatasetProps {
     onDragStart: (e: MouseEvent, dataset: DatasetType) => void;
     onDrag: (e: MouseEvent, dataset: DatasetType) => void;
     onDragEnd: (e: MouseEvent) => void;
+    onHeightChange?: (datasetId: string, newHeight: number) => void;
     x: number;
     y: number;
     width: number;
@@ -29,6 +31,7 @@ const Dataset: React.FC<DatasetProps> = ({
     onDragStart,
     onDrag,
     onDragEnd,
+    onHeightChange,
     x,
     y,
     width,
@@ -36,7 +39,10 @@ const Dataset: React.FC<DatasetProps> = ({
 }) => {
     const headerRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [boxHeight, setBoxHeight] = useState(height);
 
+    // Calculate width only once on mount
     useEffect(() => {
         const header = headerRef.current;
         const content = contentRef.current;
@@ -59,16 +65,30 @@ const Dataset: React.FC<DatasetProps> = ({
         if (maxWidth !== dataset.width) {
             dataset.width = maxWidth;
         }
-    }, [dataset]);
+    }, []); // Empty dependency array means this runs once on mount
+
+    // Handle height changes separately
+    useEffect(() => {
+        const newHeight = calculateHeight(dataset.columns);
+        setBoxHeight(newHeight);
+        
+        // Notify parent of height change
+        if (onHeightChange && newHeight !== height) {
+            onHeightChange(dataset.id, newHeight);
+        }
+    }, [dataset.columns, isExpanded, height, onHeightChange]);
 
     // Calculate dynamic height based on header and columns
     const calculateHeight = (columns: Column[]): number => {
         const headerHeight = headerRef.current?.offsetHeight || 0;
-        return headerHeight + // Dynamic header height
-               HEADER_PADDING * 2 + // Header padding
-               columns.length * COLUMN_HEIGHT + // Total height of all columns
-               (columns.length - 1) * ROW_PADDING + // Padding between columns
-               CONTAINER_PADDING * 2; // Container padding
+        const visibleColumns = isExpanded ? columns.length : Math.min(3, columns.length);
+        
+        return headerHeight + // Header height
+               (visibleColumns * COLUMN_HEIGHT) + // Height for visible columns
+               ((visibleColumns - 1) * ROW_PADDING) + // Padding between columns
+               (CONTAINER_PADDING * 2) + // Top and bottom padding
+               (columns.length > 3 ? SHOW_MORE_HEIGHT : 0) + // Show More/Less link height
+               4; // Extra padding for border
     };
 
     const isColumnConnected = (columnName: string) => {
@@ -140,49 +160,78 @@ const Dataset: React.FC<DatasetProps> = ({
         document.addEventListener('mouseup', handleMouseUp, true);
     };
 
+    const handleShowMore = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsExpanded(!isExpanded);
+    };
+
     return (
         <div
             data-testid={`dataset-${dataset.id}`}
-            className="absolute bg-white rounded-lg shadow-md border border-gray-200 cursor-move text-sm"
+            className="absolute bg-white rounded-lg shadow-md border border-gray-200 cursor-move text-sm overflow-hidden"
             onMouseDown={handleMouseDown}
             style={{
                 transform: `translate(${x}px, ${y}px)`,
                 width: `${width}px`,
-                height: `${height}px`,
+                height: `${boxHeight}px`,
                 position: 'absolute',
                 userSelect: 'none',
                 minWidth: MIN_WIDTH,
                 maxWidth: width,
+                transition: 'height 0.3s ease-in-out'
             }}
         >
             {/* Header */}
             <div 
                 ref={headerRef}
-                className="flex justify-between items-center px-3 py-2 flex-wrap gap-2 bg-gray-200 rounded-t-lg"
+                className="flex justify-between items-center px-3 py-2 gap-4 bg-gray-200 rounded-t-lg"
             >
-                <div className="font-medium text-gray-700">{dataset.display_name || dataset.name}</div>
-                <div className="text-[10px] text-gray-500 italic">{dataset.type}</div>
+                <div className="font-medium text-gray-700 truncate">{dataset.display_name || dataset.name}</div>
+                <div className="text-[10px] text-gray-500 italic whitespace-nowrap">{dataset.type}</div>
             </div>
 
             {/* Content */}
             <div 
                 ref={contentRef}
-                className="border-t border-gray-100"
+                className="border-t border-gray-100 flex flex-col relative"
+                style={{
+                    height: `${boxHeight - (headerRef.current?.offsetHeight || 0)}px`,
+                    overflow: 'hidden'
+                }}
             >
-                {dataset.columns.map((column, index) => (
-                    <div
-                        key={column.name}
-                        className={getColumnClassName(column.name)}
-                        data-testid={`column-${dataset.id}-${column.name}`}
-                        data-highlighted={isColumnHighlighted(column.name)}
-                        onClick={handleColumnClick(column.name)}
-                        onMouseDown={(e) => e.stopPropagation()} // Prevent drag when clicking column
-                        style={{ pointerEvents: 'auto' }}
-                    >
-                        <div className="text-gray-600">{column.name}</div>
-                        <div className="text-gray-400 text-xs">{column.type}</div>
+                <div className="flex-1 overflow-y-auto">
+                    <div className="flex flex-col">
+                        {dataset.columns.slice(0, isExpanded ? undefined : 3).map((column, index) => (
+                            <div
+                                key={column.name}
+                                className={getColumnClassName(column.name)}
+                                data-testid={`column-${dataset.id}-${column.name}`}
+                                data-highlighted={isColumnHighlighted(column.name)}
+                                onClick={handleColumnClick(column.name)}
+                                onMouseDown={(e) => e.stopPropagation()} // Prevent drag when clicking column
+                                style={{ pointerEvents: 'auto' }}
+                            >
+                                <div className="text-gray-600">{column.name}</div>
+                                <div className="text-gray-400 text-xs">{column.type}</div>
+                            </div>
+                        ))}
                     </div>
-                ))}
+                </div>
+                {dataset.columns.length > 3 && (
+                    <div
+                        className={`dataset-column flex items-center justify-center py-2 cursor-pointer px-3 text-blue-600 hover:bg-gray-50 ${isExpanded ? 'border-t border-gray-100 bg-white' : ''}`}
+                        onClick={handleShowMore}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        style={{
+                            width: '100%',
+                            height: `${SHOW_MORE_HEIGHT}px`,
+                            boxShadow: isExpanded ? '0 -4px 6px -1px rgba(0, 0, 0, 0.1)' : 'none'
+                        }}
+                    >
+                        {isExpanded ? 'Show Less' : `Show ${dataset.columns.length - 3} More`}
+                    </div>
+                )}
             </div>
         </div>
     );

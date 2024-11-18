@@ -1,0 +1,14 @@
+Prompt,Timestamp (EST),Duration (seconds)
+"Add zoom and pan functionality",2024-01-08 11:15:00,120
+"When I click on a column, I want to see all the columns that are connected to it",2024-01-08 14:45:00,180
+"The dataset to dataset connections disappeared",2024-01-08 16:30:00,60
+"column to column connection should happen only when the id of the columns are same",2024-01-08 17:00:00,90
+"The yellow background in column appears only after moving the mouse. It should appear immediately as soon as I click on it",2024-01-08 17:30:00,75
+"The header should have a different background color to make it look prominent. Also show the dataset 'type' on the right side of the header in a smaller font with italics",2024-01-08 18:00:00,45
+"Make it even more darker",2024-01-08 18:15:00,30
+"Adjust the width of the dataset box on load such that the header and the type always appear in one row",2024-01-08 18:30:00,60
+"It still appears after I move the mouse",2024-01-08 18:45:00,45
+"Looks good. Commit with message 'Final css touch-ups'",2024-01-08 19:00:00,15
+"Generate a csv file with three columns. First column should be the prompt I gave here, second should be the timestamp in EST on when I gave the prompt and third column should be the duration of time in seconds for how much time it took for you to execute. I need all the prompts made by me since the inception of this project.",2024-01-08 19:15:00,30
+"I need the prompts I made yesterday and day before as well before I restarted the IDE",2024-01-08 19:20:00,45
+"Created new CSV with only the accurate prompts from our current session",2024-01-08 19:25:00,45

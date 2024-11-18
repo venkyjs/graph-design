@@ -26,8 +26,8 @@ interface ConnectedColumn {
 
 const calculateDatasetPositions = (config: GraphConfig) => {
     const newDatasets: { [key: string]: DatasetWithPosition } = {};
-    const HORIZONTAL_SPACING = 350; 
-    const VERTICAL_SPACING = 150;  
+    const HORIZONTAL_SPACING = 500; 
+    const VERTICAL_SPACING = 200;  
     const DEFAULT_CONTAINER_HEIGHT = 800; // Default height if not specified
     
     // First, identify all unique levels and group datasets by level
@@ -476,6 +476,38 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
         });
     };
 
+    const handleDatasetHeightChange = (datasetId: string, newHeight: number) => {
+        // Update the dataset's height
+        setDatasets(prev => {
+            const updatedDataset = {
+                ...prev[datasetId],
+                height: newHeight
+            };
+
+            // Find all datasets below this one and adjust their positions
+            const updatedDatasets = { ...prev };
+            const changedDataset = updatedDataset;
+            
+            Object.values(updatedDatasets).forEach(dataset => {
+                if (dataset.id !== datasetId && 
+                    dataset.x === changedDataset.x && // Same column
+                    dataset.y > changedDataset.y) {  // Below the changed dataset
+                    
+                    // Calculate the height difference
+                    const heightDiff = newHeight - prev[datasetId].height;
+                    
+                    // Move the dataset down by the height difference
+                    dataset.y += heightDiff;
+                }
+            });
+
+            return {
+                ...updatedDatasets,
+                [datasetId]: updatedDataset
+            };
+        });
+    };
+
     return (
         <div 
             ref={containerRef}
@@ -570,6 +602,7 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
                             onDragStart={(e) => handleDragStart(e, dataset)}
                             onDrag={(e) => handleDrag(e, dataset)}
                             onDragEnd={handleDragEnd}
+                            onHeightChange={handleDatasetHeightChange}
                             x={dataset.x}
                             y={dataset.y}
                             width={dataset.width}
