@@ -5,13 +5,17 @@ interface ColumnConnectionProps {
     from: DatasetWithPosition;
     to: DatasetWithPosition;
     columnName: string;
+    fromId?: string;
+    toId?: string;
 }
 
-const ColumnConnection: React.FC<ColumnConnectionProps> = ({ from, to, columnName }) => {
+const ColumnConnection: React.FC<ColumnConnectionProps> = ({ from, to, columnName, fromId, toId }) => {
     if (!from || !to) {
         console.warn('Missing dataset in column connection');
         return null;
     }
+
+    console.log('Rendering column connection:', { from, to, columnName, fromId, toId });
 
     const HEADER_HEIGHT = 24; // Height of the dataset header
     const COLUMN_HEIGHT = 20; // Height of each column row
@@ -20,53 +24,56 @@ const ColumnConnection: React.FC<ColumnConnectionProps> = ({ from, to, columnNam
     const CONTAINER_PADDING = 12; // p-3 equals 0.75rem = 12px padding
     const ROW_MARGIN = 0; // Margin between rows
 
-    const getColumnY = (dataset: DatasetWithPosition, columnName: string): number => {
-        // Find the exact column we're looking for
-        const columnIndex = dataset.columns.findIndex(col => {
-            if (col.name === columnName) return true;
-            if (col.name === `${columnName}Id`) return true;
-            return false;
-        });
-        
-        if (columnIndex === -1) {
-            console.warn(`Column ${columnName} not found in dataset ${dataset.id}`);
+    const getColumnY = (dataset: DatasetWithPosition, columnName?: string): number => {
+        if (!columnName) {
+            console.log('No column name provided, using dataset center');
             return dataset.y + dataset.height / 2;
         }
 
-        // Calculate exact Y position
-        return dataset.y + 
-               HEADER_HEIGHT + // Account for header
-               (HEADER_PADDING * 2) + // Padding after header
-               CONTAINER_PADDING + // Container padding (p-3 = 8px)
-               (columnIndex * (COLUMN_HEIGHT + (ROW_PADDING * 2) + ROW_MARGIN)) + // Previous columns with padding
-               (COLUMN_HEIGHT / 2); // Center of current column
+        const columnIndex = dataset.columns.findIndex(col => col.name === columnName);
+        if (columnIndex === -1) {
+            console.warn('Column not found:', columnName, 'in dataset:', dataset);
+            return dataset.y + dataset.height / 2;
+        }
+
+        console.log('Found column at index:', columnIndex);
+
+        const columnHeight = 24; // Height of each column
+        const totalHeight = dataset.columns.length * columnHeight;
+        const startY = dataset.y + (dataset.height - totalHeight) / 2;
+        const y = startY + columnIndex * columnHeight + columnHeight / 2;
+        
+        console.log('Calculated Y position:', { columnHeight, totalHeight, startY, y });
+        return y;
     };
 
-    // Determine if the connection should be reversed based on position
-    const shouldReverse = from.x > to.x;
-    const [startDataset, endDataset] = shouldReverse ? [to, from] : [from, to];
-
-    // Calculate connection points
-    const startX = shouldReverse 
-        ? startDataset.x // Left edge
-        : startDataset.x + startDataset.width; // Right edge
-    const startY = getColumnY(startDataset, columnName);
+    // Calculate connection points - always draw from right edge of source to left edge of target
+    const startX = from.x + from.width;  // Right edge of source
+    const startY = getColumnY(from, columnName);
     
-    let endX = shouldReverse 
-        ? endDataset.x + endDataset.width // Right edge
-        : endDataset.x; // Left edge
-    const endY = getColumnY(endDataset, columnName);
-    endX = endX - 20;
+    let endX = to.x;  // Left edge of target
+    const endY = getColumnY(to, columnName);
+
     // Create curved path with adjusted control points
     const distance = Math.abs(endX - startX);
-    const controlPointOffset = Math.min(distance * 0.2, 50); // Limit the curve's bulge
+    const controlPointOffset = Math.min(distance * 0.5, 150);
+    
+    // Calculate control points for a smoother curve
+    const controlPoint1X = startX + controlPointOffset;
+    const controlPoint1Y = startY;
+    
+    const controlPoint2X = endX - controlPointOffset;
+    const controlPoint2Y = endY;
 
+    endX = endX - 10;
+
+    // Create the bezier curve path
     const path = `
         M ${startX} ${startY}
-        C ${startX + (shouldReverse ? -controlPointOffset : controlPointOffset)} ${startY},
-          ${endX + (shouldReverse ? controlPointOffset : -controlPointOffset)} ${endY},
+        C ${controlPoint1X} ${controlPoint1Y},
+          ${controlPoint2X} ${controlPoint2Y},
           ${endX} ${endY}
-    `;
+    `.trim();
 
     return (
         <svg
@@ -77,15 +84,16 @@ const ColumnConnection: React.FC<ColumnConnectionProps> = ({ from, to, columnNam
                 width: '100%',
                 height: '100%',
                 pointerEvents: 'none',
-                zIndex: 2
+                zIndex: 10,
+                overflow: 'visible'
             }}
         >
             <defs>
                 <marker
-                    id="column-arrowhead"
+                    id={`column-arrowhead-${fromId}-${toId}`}
                     markerWidth="10"
                     markerHeight="7"
-                    refX="9"
+                    refX="3"
                     refY="3.5"
                     orient="auto"
                 >
@@ -99,9 +107,12 @@ const ColumnConnection: React.FC<ColumnConnectionProps> = ({ from, to, columnNam
                 d={path}
                 stroke="#0066cc"
                 strokeWidth="2"
-                strokeDasharray="4"
                 fill="none"
-                markerEnd="url(#column-arrowhead)"
+                markerEnd={`url(#column-arrowhead-${fromId}-${toId})`}
+                style={{
+                    strokeDasharray: '4,4',
+                    pointerEvents: 'none'
+                }}
             />
         </svg>
     );
