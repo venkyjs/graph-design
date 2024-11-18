@@ -56,7 +56,7 @@
       "height": 150,
       "type": "output_flow",
       "columns": [
-        { "name": "id", "type": "string" },
+        { "name": "region_id", "type": "string" },
         { "name": "region_total", "type": "number" },
         { "name": "growth_rate", "type": "number" }
       ]
@@ -126,7 +126,7 @@
     { "from": "report1", "to": "output_flow1" },
     { "from": "output_flow1", "to": "input_flow1_1" },
     { "from": "output_flow1", "to": "input_flow1_2" },
-    { "from": "input_flow1_1", "to": "output_flow2" },
+    { "from": "input_flow1_1", "to": "output_flow2", "fromColumn": "region_id", "toColumn": "region_id" },
     { "from": "input_flow1_2", "to": "output_flow2" },
     { "from": "output_flow2", "to": "input_flow2_1" },
     { "from": "input_flow2_1", "to": "output_flow3" },

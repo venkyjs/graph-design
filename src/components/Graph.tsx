@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Dataset as DatasetType, Connection as ConnectionType, GraphConfig, HighlightedColumn } from '../types/graph';
 import Dataset from './Dataset';
 import Connection from './Connection';
@@ -17,6 +17,11 @@ interface ViewportState {
     scale: number;
     translateX: number;
     translateY: number;
+}
+
+interface ConnectedColumn {
+    datasetId: string;
+    columnName: string;
 }
 
 const calculateDatasetPositions = (config: GraphConfig) => {
@@ -101,6 +106,7 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
     });
 
     const [highlightedColumn, setHighlightedColumn] = useState<HighlightedColumn | null>(null);
+    const [connectedColumns, setConnectedColumns] = useState<ConnectedColumn[]>([]);
     const isDraggingRef = useRef(false);
     const dragStartDatasetId = useRef<string | null>(null);
     const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
@@ -314,22 +320,25 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
         isDraggingRef.current = false;
     };
 
-    const handleColumnClick = (datasetId: string) => (columnName: string, e: MouseEvent) => {
-        console.log('Column clicked:', { datasetId, columnName });
-        
-        setHighlightedColumn(prev => {
-            const newState = prev?.sourceDatasetId === datasetId && prev.columnName === columnName
-                ? null
-                : { sourceDatasetId: datasetId, columnName };
-            console.log('New highlighted column state:', newState);
-            return newState;
+    const handleColumnClick = useCallback((columnName: string, sourceDatasetId: string) => {
+        // First update state
+        setHighlightedColumn({
+            columnName,
+            sourceDatasetId
         });
-    };
 
-    const getColumnConnections = () => {
-        if (!highlightedColumn) return [];
+        // Then immediately calculate and update connections
+        const { connectedColumns: newConnectedColumns } = getColumnConnections({
+            columnName,
+            sourceDatasetId
+        });
+        setConnectedColumns(newConnectedColumns);
+    }, []);
 
-        console.log('Getting column connections for:', highlightedColumn);
+    const getColumnConnections = (currentHighlightedColumn: HighlightedColumn | null) => {
+        if (!currentHighlightedColumn) {
+            return { connections: [], connectedColumns: [] };
+        }
 
         const connections: Array<{
             from: DatasetWithPosition;
@@ -339,34 +348,105 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
             toId: string;
         }> = [];
 
-        // Find direct column connections from the config
-        (config.connections || []).forEach(conn => {
-            const fromDataset = datasets[conn.from];
-            const toDataset = datasets[conn.to];
-            
-            if (!fromDataset || !toDataset) {
-                console.warn('Missing dataset in connection:', { from: conn.from, to: conn.to });
-                return;
-            }
+        const processedConnections = new Set<string>();
+        const newConnectedColumns: ConnectedColumn[] = [];
 
-            // Check if either dataset has the highlighted column
-            const isFromDatasetHighlighted = conn.from === highlightedColumn.sourceDatasetId;
-            const isToDatasetHighlighted = conn.to === highlightedColumn.sourceDatasetId;
-
-            if (isFromDatasetHighlighted || isToDatasetHighlighted) {
-                // Always maintain the original direction from the connection config
-                connections.push({
-                    from: fromDataset,
-                    to: toDataset,
-                    columnName: highlightedColumn.columnName,
-                    fromId: conn.from,
-                    toId: conn.to
-                });
-            }
+        // Add the clicked column to connected columns
+        newConnectedColumns.push({
+            datasetId: currentHighlightedColumn.sourceDatasetId,
+            columnName: currentHighlightedColumn.columnName
         });
 
-        console.log('Returning connections:', connections);
-        return connections;
+        // Recursive function to trace connections
+        const traceConnections = (datasetId: string, columnName: string, visited: Set<string> = new Set()) => {
+            if (visited.has(datasetId)) return;
+            visited.add(datasetId);
+
+            const currentDataset = config.datasets.find(d => d.id === datasetId);
+            if (!currentDataset) return;
+
+            (config.connections || []).forEach(conn => {
+                if (conn.from === datasetId) {
+                    const fromDataset = datasets[conn.from];
+                    const toDataset = datasets[conn.to];
+                    const targetDataset = config.datasets.find(d => d.id === conn.to);
+                    
+                    if (!fromDataset || !toDataset || !targetDataset) {
+                        console.warn('Missing dataset in connection:', { from: conn.from, to: conn.to });
+                        return;
+                    }
+
+                    // Check if the column exists in target dataset
+                    const hasMatchingColumn = targetDataset.columns.some(col => col.name === columnName);
+                    if (!hasMatchingColumn) return;
+
+                    const connectionKey = `${conn.from}-${conn.to}-${columnName}`;
+                    if (!processedConnections.has(connectionKey)) {
+                        connections.push({
+                            from: fromDataset,
+                            to: toDataset,
+                            columnName: columnName,
+                            fromId: conn.from,
+                            toId: conn.to
+                        });
+                        processedConnections.add(connectionKey);
+
+                        newConnectedColumns.push({
+                            datasetId: conn.to,
+                            columnName: columnName
+                        });
+                    }
+
+                    traceConnections(conn.to, columnName, visited);
+                }
+            });
+        };
+
+        const traceBackwards = (datasetId: string, columnName: string, visited: Set<string> = new Set()) => {
+            if (visited.has(datasetId)) return;
+            visited.add(datasetId);
+
+            const currentDataset = config.datasets.find(d => d.id === datasetId);
+            if (!currentDataset) return;
+
+            (config.connections || []).forEach(conn => {
+                if (conn.to === datasetId) {
+                    const fromDataset = datasets[conn.from];
+                    const toDataset = datasets[conn.to];
+                    const sourceDataset = config.datasets.find(d => d.id === conn.from);
+                    
+                    if (!fromDataset || !toDataset || !sourceDataset) return;
+
+                    // Check if the column exists in source dataset
+                    const hasMatchingColumn = sourceDataset.columns.some(col => col.name === columnName);
+                    if (!hasMatchingColumn) return;
+
+                    const connectionKey = `${conn.from}-${conn.to}-${columnName}`;
+                    if (!processedConnections.has(connectionKey)) {
+                        connections.push({
+                            from: fromDataset,
+                            to: toDataset,
+                            columnName: columnName,
+                            fromId: conn.from,
+                            toId: conn.to
+                        });
+                        processedConnections.add(connectionKey);
+
+                        newConnectedColumns.push({
+                            datasetId: conn.from,
+                            columnName: columnName
+                        });
+                    }
+
+                    traceBackwards(conn.from, columnName, visited);
+                }
+            });
+        };
+
+        traceConnections(currentHighlightedColumn.sourceDatasetId, currentHighlightedColumn.columnName);
+        traceBackwards(currentHighlightedColumn.sourceDatasetId, currentHighlightedColumn.columnName);
+
+        return { connections, connectedColumns: newConnectedColumns };
     };
 
     const handleDoubleClick = (e: React.MouseEvent) => {
@@ -445,15 +525,26 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
 
                         return (
                             <path
-                                key={`${connection.from}-${connection.to}-${index}`}
+                                key={`dataset-${connection.from}-${connection.to}-${index}`}
                                 d={path}
                                 stroke="#9CA3AF"
                                 strokeWidth={2}
                                 fill="none"
                                 markerEnd="url(#arrowhead)"
+                                opacity={0.5}
                             />
                         );
                     })}
+                    {getColumnConnections(highlightedColumn).connections.map((connection, index) => (
+                        <ColumnConnection
+                            key={`col-${connection.fromId}-${connection.toId}-${index}`}
+                            from={connection.from}
+                            to={connection.to}
+                            columnName={connection.columnName}
+                            fromId={connection.fromId}
+                            toId={connection.toId}
+                        />
+                    ))}
                 </g>
             </svg>
 
@@ -468,25 +559,14 @@ const Graph: React.FC<GraphProps> = ({ config }) => {
                 }}
             >
                 <div style={{ pointerEvents: 'auto' }}>
-                    {/* Render column connections first */}
-                    {getColumnConnections().map((connection, index) => (
-                        <ColumnConnection
-                            key={`col-${connection.fromId}-${connection.toId}-${index}`}
-                            from={connection.from}
-                            to={connection.to}
-                            columnName={connection.columnName}
-                            fromId={connection.fromId}
-                            toId={connection.toId}
-                        />
-                    ))}
-
                     {/* Render datasets */}
                     {Object.values(datasets).map(dataset => (
                         <Dataset
                             key={dataset.id}
                             dataset={dataset}
                             highlightedColumn={highlightedColumn}
-                            onColumnClick={handleColumnClick(dataset.id)}
+                            connectedColumns={connectedColumns}
+                            onColumnClick={handleColumnClick}
                             onDragStart={(e) => handleDragStart(e, dataset)}
                             onDrag={(e) => handleDrag(e, dataset)}
                             onDragEnd={handleDragEnd}

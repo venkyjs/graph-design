@@ -41,7 +41,7 @@ const ColumnConnection: React.FC<ColumnConnectionProps> = ({ from, to, columnNam
         const columnHeight = 24; // Height of each column
         const totalHeight = dataset.columns.length * columnHeight;
         const startY = dataset.y + (dataset.height - totalHeight) / 2;
-        const y = startY + columnIndex * columnHeight + 8 + columnHeight / 2;
+        const y = startY + columnIndex * columnHeight  + columnHeight / 2;
         
         console.log('Calculated Y position:', { columnHeight, totalHeight, startY, y });
         return y;

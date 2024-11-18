@@ -15,6 +15,8 @@ export interface Column {
 export interface Connection {
     from: string;
     to: string;
+    fromColumn?: string;
+    toColumn?: string;
 }
 
 export interface GraphConfig {
